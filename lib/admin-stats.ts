@@ -7,12 +7,12 @@ export async function getAdminDashboard() {
   const now = new Date();
   const dayAhead = new Date(now.getTime() + 24 * 60 * 60 * 1000);
 
-  const [activeDealers, lockedDealers, neverLoggedIn, publishedCourses, openExams, finished, recentExams, stuck, sessionsSoon] =
+  const [activeDealers, lockedDealers, neverLoggedIn, upcomingSessions, openExams, finished, recentExams, stuck, sessionsSoon] =
     await Promise.all([
       prisma.dealer.count({ where: { status: "active" } }),
       prisma.dealer.count({ where: { status: "locked" } }),
       prisma.user.count({ where: { role: "dealer", status: "active", lastLoginAt: null } }),
-      prisma.course.count({ where: { status: "published" } }),
+      prisma.trainingSession.count({ where: { status: "scheduled", endsAt: { gte: now } } }),
       prisma.exam.findMany({
         where: { status: "published", OR: [{ endsAt: null }, { endsAt: { gt: now } }] },
         select: { id: true, title: true, questionCount: true, startsAt: true },
@@ -69,7 +69,7 @@ export async function getAdminDashboard() {
     .reverse();
 
   return {
-    kpi: { activeDealers, lockedDealers, publishedCourses, openExams: openExams.length, passRate, finishedAttempts: finished.length },
+    kpi: { activeDealers, lockedDealers, upcomingSessions, openExams: openExams.length, passRate, finishedAttempts: finished.length },
     participation: focusReport
       ? {
           examId: focusReport.exam.id,

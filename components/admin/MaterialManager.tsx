@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { ConfirmAction } from "@/components/common/ConfirmAction";
 import { Field, inputClass } from "@/components/common/Field";
 import { Button } from "@/components/ui/button";
-import { addLinkMaterialAction, deleteMaterialAction, updateMaterialAction } from "@/lib/actions/admin/courses";
+import { addLinkMaterialAction, deleteMaterialAction, moveMaterialAction } from "@/lib/actions/admin/sessions";
 import { cn } from "@/lib/utils";
 
 interface Material {
@@ -16,50 +16,31 @@ interface Material {
   kind: string;
   url: string | null;
   fileName: string | null;
-  isRequired: boolean;
-  completedCount: number;
 }
 
-export function MaterialManager({ courseId, materials, enrolled }: { courseId: string; materials: Material[]; enrolled: number }) {
+export function MaterialManager({ sessionId, materials }: { sessionId: string; materials: Material[] }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [mode, setMode] = useState<"link" | "file">("link");
   const [title, setTitle] = useState("");
   const [url, setUrl] = useState("");
-  const [isRequired, setIsRequired] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [requiredOverride, setRequiredOverride] = useState<Record<string, boolean>>({});
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const run = (fn: () => Promise<{ error?: string; message?: string }>, onError?: () => void) =>
+  const run = (fn: () => Promise<{ error?: string; message?: string }>) =>
     start(async () => {
       const res = await fn();
-      if (res.error) {
-        toast.error(res.error);
-        onError?.();
-      } else {
+      if (res.error) toast.error(res.error);
+      else {
         toast.success(res.message ?? "Đã lưu");
         router.refresh();
       }
     });
 
-  const toggleRequired = (id: string, value: boolean) => {
-    setRequiredOverride((prev) => ({ ...prev, [id]: value }));
-    run(
-      () => updateMaterialAction(id, { isRequired: value }),
-      () =>
-        setRequiredOverride((prev) => {
-          const next = { ...prev };
-          delete next[id];
-          return next;
-        })
-    );
-  };
-
   const addLink = (e: React.FormEvent) => {
     e.preventDefault();
     run(async () => {
-      const res = await addLinkMaterialAction(courseId, { title, url, isRequired });
+      const res = await addLinkMaterialAction(sessionId, { title, url });
       if (!res.error) {
         setTitle("");
         setUrl("");
@@ -79,9 +60,8 @@ export function MaterialManager({ courseId, materials, enrolled }: { courseId: s
     const body = new FormData();
     body.append("file", file);
     body.append("title", title || file.name);
-    body.append("isRequired", String(isRequired));
     try {
-      const res = await fetch(`/api/admin/courses/${courseId}/materials`, { method: "POST", body });
+      const res = await fetch(`/api/admin/training-sessions/${sessionId}/materials`, { method: "POST", body });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       toast.success("Đã tải lên");
@@ -97,7 +77,11 @@ export function MaterialManager({ courseId, materials, enrolled }: { courseId: s
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
       <div className="space-y-2">
-        {materials.length === 0 && <p className="rounded-xl border bg-card p-6 text-sm text-muted-foreground">Chưa có tài liệu.</p>}
+        {materials.length === 0 && (
+          <p className="rounded-xl border bg-card p-6 text-sm text-muted-foreground">
+            Chưa có tài liệu. Đính kèm slide, bảng giá, chính sách… để đại lý xem trước hoặc sau buổi training.
+          </p>
+        )}
         {materials.map((m, i) => {
           const Icon = m.kind === "file" ? FileText : Link2;
           return (
@@ -105,14 +89,8 @@ export function MaterialManager({ courseId, materials, enrolled }: { courseId: s
               <Icon className="size-5 shrink-0 text-brand" />
               <div className="min-w-0 flex-1">
                 <p className="truncate font-medium">{m.title}</p>
-                <p className="truncate text-xs text-muted-foreground">
-                  {m.kind === "file" ? m.fileName : m.url} · {m.completedCount}/{enrolled} đại lý hoàn thành
-                </p>
+                <p className="truncate text-xs text-muted-foreground">{m.kind === "file" ? m.fileName : m.url}</p>
               </div>
-              <label className="flex items-center gap-1 text-xs">
-                <input type="checkbox" checked={requiredOverride[m.id] ?? m.isRequired} onChange={(e) => toggleRequired(m.id, e.target.checked)} />
-                Bắt buộc
-              </label>
               <a
                 href={m.kind === "file" ? `/api/materials/${m.id}/download` : m.url ?? "#"}
                 target="_blank"
@@ -122,16 +100,22 @@ export function MaterialManager({ courseId, materials, enrolled }: { courseId: s
               >
                 <ExternalLink className="size-4" />
               </a>
-              <Button size="icon-sm" variant="ghost" disabled={pending || i === 0} onClick={() => run(() => updateMaterialAction(m.id, { move: "up" }))} aria-label="Lên">
+              <Button size="icon-sm" variant="ghost" disabled={pending || i === 0} onClick={() => run(() => moveMaterialAction(m.id, "up"))} aria-label="Lên">
                 <ArrowUp className="size-4" />
               </Button>
-              <Button size="icon-sm" variant="ghost" disabled={pending || i === materials.length - 1} onClick={() => run(() => updateMaterialAction(m.id, { move: "down" }))} aria-label="Xuống">
+              <Button
+                size="icon-sm"
+                variant="ghost"
+                disabled={pending || i === materials.length - 1}
+                onClick={() => run(() => moveMaterialAction(m.id, "down"))}
+                aria-label="Xuống"
+              >
                 <ArrowDown className="size-4" />
               </Button>
               <ConfirmAction
                 action={() => deleteMaterialAction(m.id)}
                 title="Xóa tài liệu?"
-                description={`Tài liệu "${m.title}" và tiến độ học của đại lý với tài liệu này sẽ bị xóa.`}
+                description={`Tài liệu "${m.title}" sẽ bị xóa, đại lý không mở được nữa.`}
                 confirmLabel="Xóa"
                 destructive
                 trigger={
@@ -171,9 +155,6 @@ export function MaterialManager({ courseId, materials, enrolled }: { courseId: s
               <input ref={fileRef} type="file" accept=".pdf,.docx,.xlsx,.pptx,.png,.jpg,.jpeg,.mp4" className="text-sm" />
             </Field>
           )}
-          <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={isRequired} onChange={(e) => setIsRequired(e.target.checked)} /> Tài liệu bắt buộc
-          </label>
           <Button type="submit" className="w-full" disabled={pending || uploading}>
             {mode === "link" ? "Thêm tài liệu" : uploading ? "Đang tải lên…" : (
               <>

@@ -1,6 +1,6 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { toRole, type UserRole } from "@/lib/roles";
+import { canViewAuditLog, toRole, type UserRole } from "@/lib/roles";
 
 export interface AuthedUser {
   userId: string;
@@ -31,6 +31,16 @@ export async function requireAdmin(): Promise<AuthedUser | GuardError> {
   const guard = await requireUser();
   if ("error" in guard) return { error: guard.error, status: guard.status };
   if (guard.role !== "admin") return { error: "Không có quyền truy cập", status: 403 };
+  return guard;
+}
+
+export async function requireAuditLogViewer(): Promise<AuthedUser | GuardError> {
+  const guard = await requireAdmin();
+  if ("error" in guard) return { error: guard.error, status: guard.status };
+  const user = await prisma.user.findUnique({ where: { id: guard.userId }, select: { email: true, status: true } });
+  if (!user || user.status !== "active" || !canViewAuditLog(guard.role, user.email)) {
+    return { error: "Không có quyền truy cập", status: 403 };
+  }
   return guard;
 }
 

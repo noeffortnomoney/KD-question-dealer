@@ -2,6 +2,7 @@ import { requireAdmin } from "@/lib/auth-guard";
 import { guardResponse } from "@/lib/http";
 import { TEMPLATE_COLUMNS } from "@/lib/import/dealer-import";
 import { XLSX_TYPE, buildWorkbook, fileResponse } from "@/lib/import/excel";
+import { DEFAULT_PASSWORD } from "@/lib/password-rules";
 
 export async function GET() {
   const guard = await requireAdmin();
@@ -19,7 +20,6 @@ export async function GET() {
           email: "hcm001@example.com",
           phone: "0909123456",
           region: "TP. Hồ Chí Minh",
-          tempPassword: "",
         },
       ],
     },
@@ -34,13 +34,11 @@ export async function GET() {
         col: c.header,
         req: c.required ? "Có" : "Không",
         note:
-          c.key === "tempPassword"
-            ? "Để trống để hệ thống tự sinh. Nếu nhập: ≥ 8 ký tự, có chữ và số. Đại lý phải đổi mật khẩu ở lần đăng nhập đầu."
-            : c.key === "code"
-              ? "Duy nhất, chỉ gồm chữ, số, dấu - _ ."
-              : c.key === "email"
-                ? "Duy nhất, dùng để đăng nhập"
-                : `Tối đa ${c.max} ký tự`,
+          c.key === "code"
+            ? "Duy nhất, chỉ gồm chữ, số, dấu - _ ."
+            : c.key === "email"
+              ? `Duy nhất, dùng để đăng nhập. Mật khẩu đăng nhập lần đầu: ${DEFAULT_PASSWORD} (bắt buộc đổi ngay)`
+              : `Tối đa ${c.max} ký tự`,
       })),
     },
   ]);

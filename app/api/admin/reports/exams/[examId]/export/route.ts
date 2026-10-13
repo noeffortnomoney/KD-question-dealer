@@ -2,7 +2,8 @@ import { requireAdmin } from "@/lib/auth-guard";
 import { formatDateTime } from "@/lib/date-utils";
 import { apiError, guardResponse } from "@/lib/http";
 import { CSV_TYPE, XLSX_TYPE, buildCsv, buildWorkbook, fileResponse } from "@/lib/import/excel";
-import { REPORT_STATUS_LABEL, getExamReport } from "@/lib/reports";
+import { REPORT_DEFAULT_SORT, REPORT_SORT_KEYS, REPORT_STATUS_LABEL, getExamReport, sortReportRows } from "@/lib/reports";
+import { parseSort } from "@/lib/sort";
 
 export const dynamic = "force-dynamic";
 
@@ -33,7 +34,12 @@ export async function GET(request: Request, { params }: { params: Promise<{ exam
   });
   if (!report) return apiError(404, "NOT_FOUND", "Không tìm thấy kỳ thi");
 
-  const rows = report.rows.map((r) => ({
+  const sort = parseSort(
+    { sort: url.searchParams.get("sort") ?? undefined, dir: url.searchParams.get("dir") ?? undefined },
+    REPORT_SORT_KEYS,
+    REPORT_DEFAULT_SORT
+  );
+  const rows = sortReportRows(report.rows, sort).map((r) => ({
     code: r.dealerCode,
     name: r.dealerName,
     region: r.region ?? "",

@@ -4,8 +4,8 @@
 
 Website responsive để đại lý Kymdan:
 
-1. Tham gia khóa đào tạo, xem tài liệu.
-2. Tham gia buổi training trực tuyến qua link Google Meet.
+1. Tham gia buổi training (họp giữa công ty và đại lý) qua link Google Meet, xem tài liệu đính kèm từng buổi.
+2. *(Bỏ 2026-10-13: "khóa đào tạo" — công ty không đào tạo theo khóa, xem [09](09-cau-hoi-mo-rui-ro.md) Q19.)*
 3. Ôn tập câu hỏi không giới hạn.
 4. Dự thi chính thức (30 câu / 45 phút / 1 lượt).
 
@@ -18,7 +18,7 @@ Hệ thống phải lưu bài làm an toàn, chấm điểm phía server và ch�
 | Module | Nội dung |
 |---|---|
 | Người dùng & đại lý | CRUD, khóa/mở tài khoản, import Excel/CSV có preview, kiểm tra lỗi, xuất dòng lỗi |
-| Khóa học | Khóa học, tài liệu (file trên object storage), lịch training, link Google Meet, phân công đại lý |
+| Lịch training | Buổi họp Google Meet (nội dung, người trình bày, giờ, link), giao đại lý (tất cả / khu vực / danh sách mã), tài liệu đính kèm buổi (link hoặc file), điểm danh khi bấm Tham gia. Không có khóa học |
 | Ngân hàng câu hỏi | Chủ đề (có thể phân cấp), câu hỏi, lựa chọn, đáp án, giải thích, trạng thái Draft/Published/Archived |
 | Ôn tập | Không giới hạn lần; hiện đáp án/giải thích theo cấu hình |
 | Thi chính thức | 30 câu, 45 phút, 1 lượt hợp lệ; autosave, khôi phục sau mất kết nối, nộp bài, hết giờ, chấm server |
@@ -39,8 +39,8 @@ Chỉ có **2 vai trò**. Không có vai trò Trainer, Report Viewer hay Auditor
 
 | Vai trò | Quyền | Giới hạn |
 |---|---|---|
-| Quản trị viên | Toàn quyền nghiệp vụ: đại lý, tài khoản, vai trò, khóa học, lịch Meet, ngân hàng câu hỏi, kỳ thi, cấp lại lượt, báo cáo, export, audit log | Thao tác nhạy cảm (cấp lại lượt, đổi quyền, chỉnh kết quả, import, publish đề) bắt buộc ghi audit log |
-| Đại lý | Xem khóa học và lịch, vào Google Meet, ôn tập, thi chính thức, xem kết quả được phép | Chỉ thấy dữ liệu của chính mình; không thấy đáp án trước thời điểm công bố |
+| Quản trị viên | Toàn quyền nghiệp vụ: đại lý, tài khoản, vai trò, lịch Meet + tài liệu, ngân hàng câu hỏi, kỳ thi, cấp lại lượt, báo cáo, export, audit log | Thao tác nhạy cảm (cấp lại lượt, đổi quyền, chỉnh kết quả, import, publish đề) bắt buộc ghi audit log |
+| Đại lý | Xem lịch training + tài liệu được giao, vào Google Meet, ôn tập, thi chính thức, xem kết quả được phép | Chỉ thấy dữ liệu của chính mình; không thấy đáp án trước thời điểm công bố |
 
 ## 4. Luồng nghiệp vụ chính
 
@@ -49,8 +49,8 @@ flowchart TD
     A[Admin tải template Excel] --> B[Upload file dealer]
     B --> C{Validate: mã dealer, email,<br/>trường bắt buộc, trùng}
     C -->|Preview + dòng lỗi| D[Admin xác nhận import]
-    D --> E[Admin tạo khóa học, tài liệu,<br/>lịch training + link Meet]
-    E --> F[Dealer đăng nhập, học, vào Meet]
+    D --> E[Admin tạo lịch training + link Meet,<br/>giao đại lý, đính kèm tài liệu]
+    E --> F[Dealer đăng nhập, xem tài liệu, vào Meet]
     F --> G[Dealer ôn tập theo chủ đề]
     G --> H[Admin tạo kỳ thi: 30 câu, 45 phút,<br/>điểm đạt, lịch, phân công]
     H --> I[Dealer bắt đầu thi]
@@ -75,7 +75,7 @@ flowchart LR
     N --> P[Prisma 6]
     RH --> P
     P --> DB[(SQL Server hoặc Postgres<br/>CẦN CHỐT)]
-    RH --> BLOB[(Blob / object storage<br/>tài liệu khóa học)]
+    RH --> BLOB[(Blob / object storage<br/>tài liệu buổi training)]
     CRON[Cron mỗi phút<br/>attempt hết giờ, dọn import] --> RH
     N -.-> AUTH[NextAuth v5<br/>JWT cookie]
 ```

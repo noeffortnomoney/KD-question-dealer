@@ -27,7 +27,8 @@ export function ToneBadge({ tone, children, className }: { tone: Tone; children:
 export function StatusBadge({ map, value, className }: { map: Record<string, Label>; value: string; className?: string }) {
   const label = map[value] ?? { text: value, tone: "muted" as const };
   return (
-    <ToneBadge tone={label.tone} className={className}>
+    <ToneBadge tone={label.tone} className={cn("gap-1.5 pl-2", className)}>
+      <span className="size-1.5 shrink-0 rounded-full bg-current" aria-hidden />
       {label.text}
     </ToneBadge>
   );

@@ -1,4 +1,4 @@
-import { BookOpen, CalendarDays, ChevronRight, FileText, Trophy } from "lucide-react";
+import { CalendarDays, ChevronRight, FileText, Trophy, Video } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { EmptyState } from "@/components/common/EmptyState";
@@ -7,10 +7,9 @@ import { ToneBadge } from "@/components/common/StatusBadge";
 import { EXAM_STATE_LABEL, ExamActionButton } from "@/components/exam/ExamActionButton";
 import { SessionRow } from "@/components/learning/SessionRow";
 import { requireDealer } from "@/lib/auth-guard";
-import { formatDateTime } from "@/lib/date-utils";
 import { listDealerExams } from "@/lib/exam/engine";
 import { formatScore } from "@/lib/format";
-import { getDealerCourses, getDealerSessions } from "@/lib/queries/learning";
+import { countDealerAttended, getDealerSessions } from "@/lib/queries/learning";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Trang chủ — Kymdan" };
@@ -19,12 +18,11 @@ export default async function DealerDashboard() {
   const g = await requireDealer();
   if ("error" in g) redirect("/login");
 
-  const [courses, sessions, exams] = await Promise.all([
-    getDealerCourses(g.dealerId),
+  const [attended, sessions, exams] = await Promise.all([
+    countDealerAttended(g.dealerId),
     getDealerSessions(g.dealerId, "upcoming"),
     listDealerExams(g.dealerId),
   ]);
-  const activeCourses = courses.filter((c) => !c.completed);
   const openExams = exams.filter((e) => ["can_start", "in_progress", "reissued", "not_open"].includes(e.state));
   const latest = exams.find((e) => e.state === "finished" && e.score.visible);
 
@@ -43,8 +41,8 @@ export default async function DealerDashboard() {
       </section>
 
       <div className="grid gap-4 sm:grid-cols-3">
-        <StatCard label="Khóa đào tạo" value={activeCourses.length} hint="Đang học" icon={BookOpen} tone="info" />
-        <StatCard label="Lịch training" value={sessions.length} hint="Sắp diễn ra" icon={CalendarDays} tone="success" />
+        <StatCard label="Lịch training" value={sessions.length} hint="Sắp diễn ra" icon={CalendarDays} tone="info" />
+        <StatCard label="Buổi đã tham gia" value={attended} hint="Đã bấm Tham gia" icon={Video} tone="success" />
         <StatCard
           label="Kỳ thi"
           value={exams.filter((e) => e.state === "can_start" || e.state === "in_progress" || e.state === "reissued").length}
@@ -133,33 +131,6 @@ export default async function DealerDashboard() {
           </div>
         </section>
       </div>
-
-      {activeCourses.length > 0 && (
-        <section>
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-lg font-bold">Khóa học đang học</h2>
-            <Link href="/courses" className="flex items-center text-sm text-brand hover:underline">
-              Xem tất cả <ChevronRight className="size-4" />
-            </Link>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {activeCourses.slice(0, 3).map((c) => (
-              <Link key={c.id} href={`/courses/${c.id}`} className="card-lift rounded-xl border bg-card p-4">
-                <p className="font-semibold">{c.title}</p>
-                <div className="mt-3 flex items-center gap-2">
-                  <div className="h-2 flex-1 rounded-full bg-muted">
-                    <div className="h-2 rounded-full bg-success" style={{ width: `${c.percent}%` }} />
-                  </div>
-                  <span className="text-xs font-semibold">{c.percent}%</span>
-                </div>
-                {c.nextSessionAt && (
-                  <p className="mt-2 text-xs text-muted-foreground">Buổi tiếp theo: {formatDateTime(c.nextSessionAt)}</p>
-                )}
-              </Link>
-            ))}
-          </div>
-        </section>
-      )}
     </div>
   );
 }

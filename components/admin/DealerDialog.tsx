@@ -79,7 +79,7 @@ export function DealerDialog({
         <DialogHeader>
           <DialogTitle>{isEdit ? "Sửa đại lý" : "Thêm đại lý mới"}</DialogTitle>
           <DialogDescription>
-            {isEdit ? "Cập nhật thông tin đại lý và tài khoản đăng nhập." : "Hệ thống tự sinh mật khẩu tạm cho tài khoản mới."}
+            {isEdit ? "Cập nhật thông tin đại lý và tài khoản đăng nhập." : "Tài khoản mới có mật khẩu mặc định 123456, đại lý phải đổi ở lần đăng nhập đầu."}
           </DialogDescription>
         </DialogHeader>
 

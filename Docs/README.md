@@ -33,6 +33,7 @@ Bộ tài liệu này được chuẩn hóa từ gói bàn giao v1.1 (`Dealer_Tr
 | [08-ke-hoach-nghiem-thu.md](08-ke-hoach-nghiem-thu.md) | Lộ trình 12 tuần, ngân sách, tiêu chí nghiệm thu, Definition of Done | Lập kế hoạch sprint |
 | [09-cau-hoi-mo-rui-ro.md](09-cau-hoi-mo-rui-ro.md) | Câu hỏi cần chủ dự án chốt, mâu thuẫn trong tài liệu gốc, rủi ro | Workshop tuần 1–2 |
 | [10-cong-nghe.md](10-cong-nghe.md) | Stack (theo TrackMyGoal), cấu trúc thư mục, auth/guard, Server Action vs Route Handler, exam engine với Prisma, DB/hosting | Dựng skeleton, code mọi module |
+| [11-kich-ban-demo.md](11-kich-ban-demo.md) | Kịch bản demo ~25 phút cho lãnh đạo không chuyên IT: chuẩn bị, lời nói từng bước (đại lý → quản trị), câu hỏi xin quyết, câu hỏi thường gặp, xử lý sự cố | Trước buổi demo |
 
 ## Nguyên tắc đọc
 

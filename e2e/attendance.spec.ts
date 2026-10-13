@@ -1,27 +1,21 @@
 import { expect, test } from "@playwright/test";
-import { cleanupTestCourses, withDb, createSessionFixture } from "./db";
+import { cleanupTestSessions, createSessionFixture } from "./db";
 import { ADMIN, dealer, login } from "./helpers";
 
 const stamp = Date.now();
-const COURSE = `E2E khóa điểm danh ${stamp}`;
 const SESSION = `E2E buổi điểm danh ${stamp}`;
 
 let sessionId = "";
 
 test.beforeAll(async () => {
-  await createSessionFixture({
-    title: COURSE,
+  [sessionId] = await createSessionFixture({
     dealerEmails: ["dealer02@kymdan.local", "dealer03@kymdan.local"],
     sessions: [{ title: SESSION, startOffsetMin: -10, durationMin: 90, meetUrl: "https://meet.google.com/abc-defg-hij" }],
-  });
-  sessionId = await withDb(async (prisma) => {
-    const s = await prisma.trainingSession.findFirstOrThrow({ where: { title: SESSION }, select: { id: true } });
-    return s.id;
   });
 });
 
 test.afterAll(async () => {
-  await cleanupTestCourses();
+  await cleanupTestSessions();
 });
 
 test("admin xem số lượng và danh sách đại lý đã bấm Tham gia, lọc và xuất Excel", async ({ page, browser }) => {
@@ -37,9 +31,11 @@ test("admin xem số lượng và danh sách đại lý đã bấm Tham gia, l�
 
   await login(page, ADMIN);
   await page.goto("/admin/training-sessions?scope=upcoming");
-  await page.getByRole("row", { name: new RegExp(SESSION) }).getByRole("link", { name: /1\/2 · Điểm danh/ }).click();
+  const row = page.getByRole("row", { name: new RegExp(SESSION) });
+  await expect(row.getByTestId("session-joined")).toHaveText("1/2");
+  await row.getByRole("link", { name: "Điểm danh", exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`/admin/training-sessions/${sessionId}`, "i"));
-  await expect(page.getByRole("heading", { name: `Điểm danh: ${SESSION}` })).toBeVisible();
+  await expect(page.getByRole("heading", { name: SESSION })).toBeVisible();
   await expect(page.getByText("Đang diễn ra", { exact: true })).toBeVisible();
   await expect(page.getByText(/Tự cập nhật mỗi 30 giây/)).toBeVisible();
 
@@ -59,7 +55,4 @@ test("admin xem số lượng và danh sách đại lý đã bấm Tham gia, l�
   const download = page.waitForEvent("download");
   await page.getByRole("link", { name: "Xuất Excel" }).click();
   expect((await download).suggestedFilename()).toMatch(/^diem-danh-.*\.xlsx$/);
-
-  await page.goto(`/admin/courses/${await withDb(async (p) => (await p.course.findFirstOrThrow({ where: { title: COURSE } })).id)}?tab=sessions`);
-  await expect(page.getByRole("link", { name: /1\/2 · Điểm danh/ })).toBeVisible();
 });

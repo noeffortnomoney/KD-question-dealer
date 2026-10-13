@@ -40,7 +40,7 @@ export function ChangePasswordForm({ homePath, forced }: { homePath: string; for
       <Field label={forced ? "Mật khẩu tạm được cấp" : "Mật khẩu hiện tại"} required>
         <input type="password" autoComplete="current-password" className={inputClass} value={form.currentPassword} onChange={set("currentPassword")} required />
       </Field>
-      <Field label="Mật khẩu mới" required hint="Tối thiểu 8 ký tự, có cả chữ và số">
+      <Field label="Mật khẩu mới" required hint="Tối thiểu 6 ký tự">
         <input type="password" autoComplete="new-password" className={inputClass} value={form.newPassword} onChange={set("newPassword")} required />
       </Field>
       <Field label="Nhập lại mật khẩu mới" required>

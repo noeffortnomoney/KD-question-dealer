@@ -5,7 +5,7 @@ import { UserMenu } from "@/components/layout/UserMenu";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import type { UserRole } from "@/lib/roles";
+import { canViewAuditLog, type UserRole } from "@/lib/roles";
 
 export async function AppShell({ role, children }: { role: UserRole; children: React.ReactNode }) {
   const session = await auth();
@@ -18,17 +18,18 @@ export async function AppShell({ role, children }: { role: UserRole; children: R
     });
     subtitle = dealer?.name ?? "Đại lý";
   }
+  const canViewAudit = canViewAuditLog(role, session?.user?.email);
 
   return (
     <div className="flex min-h-screen">
       <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r bg-card px-4 py-6 lg:flex">
         <Brand className="px-3 pb-8" subtitle={role === "admin" ? "Quản trị" : "Đào tạo đại lý"} />
-        <SidebarNav role={role} />
+        <SidebarNav role={role} canViewAudit={canViewAudit} />
       </aside>
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-30 flex h-16 items-center justify-between gap-3 border-b bg-card/95 px-4 backdrop-blur lg:px-8">
           <div className="flex items-center gap-2">
-            <MobileNav role={role} />
+            <MobileNav role={role} canViewAudit={canViewAudit} />
             <Brand className="lg:hidden" />
           </div>
           <div className="flex items-center gap-1">

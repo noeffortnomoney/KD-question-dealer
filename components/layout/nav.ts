@@ -1,10 +1,8 @@
 import {
-  BookOpen,
   CalendarDays,
   ClipboardList,
   FileBarChart,
   FileClock,
-  GraduationCap,
   Home,
   LibraryBig,
   ListChecks,
@@ -14,7 +12,7 @@ import {
   Users,
   type LucideIcon,
 } from "lucide-react";
-import type { UserRole } from "@/lib/roles";
+import { AUDIT_LOG_PATH, type UserRole } from "@/lib/roles";
 
 export interface NavItem {
   href: string;
@@ -25,7 +23,6 @@ export interface NavItem {
 
 export const DEALER_NAV: NavItem[] = [
   { href: "/dashboard", label: "Trang chủ", icon: Home },
-  { href: "/courses", label: "Khóa đào tạo", icon: BookOpen },
   { href: "/training-sessions", label: "Lịch training", icon: CalendarDays },
   { href: "/practice", label: "Luyện tập", icon: NotebookPen },
   { href: "/exams", label: "Kỳ thi", icon: ClipboardList },
@@ -35,17 +32,17 @@ export const DEALER_NAV: NavItem[] = [
 export const ADMIN_NAV: NavItem[] = [
   { href: "/admin", label: "Tổng quan", icon: Home, exact: true },
   { href: "/admin/dealers", label: "Quản lý đại lý", icon: Users },
-  { href: "/admin/courses", label: "Khóa đào tạo", icon: GraduationCap },
   { href: "/admin/training-sessions", label: "Lịch training", icon: CalendarDays },
   { href: "/admin/questions", label: "Ngân hàng câu hỏi", icon: LibraryBig },
   { href: "/admin/exams", label: "Kỳ thi", icon: ListChecks },
   { href: "/admin/reports", label: "Kết quả & báo cáo", icon: FileBarChart },
-  { href: "/admin/audit-logs", label: "Audit log", icon: FileClock },
+  { href: AUDIT_LOG_PATH, label: "Audit log", icon: FileClock },
   { href: "/admin/settings", label: "Cài đặt", icon: Settings },
 ];
 
-export function navFor(role: UserRole): NavItem[] {
-  return role === "admin" ? ADMIN_NAV : DEALER_NAV;
+export function navFor(role: UserRole, canViewAudit = false): NavItem[] {
+  if (role !== "admin") return DEALER_NAV;
+  return canViewAudit ? ADMIN_NAV : ADMIN_NAV.filter((item) => item.href !== AUDIT_LOG_PATH);
 }
 
 export function isActive(item: NavItem, pathname: string): boolean {

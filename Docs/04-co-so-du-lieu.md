@@ -218,9 +218,11 @@ Nguồn chân lý khi code là `prisma/schema.prisma`. Tên bảng/cột trong D
 | Cấp lại lượt | `ReissueReason` | `void_reason`, `void_reason_category`, `voided_at`, `voided_by_id` | Phân loại sự cố (Q12) |
 | Lỗi import | `ImportErrors` | `import_rows.errors` (JSON) + `import_rows.payload` | Commit dùng đúng dữ liệu đã preview; payload hợp lệ bị xóa sau commit |
 | Đề thi | `ExamQuestions` cố định | `exam_questions` là **bộ câu hỏi (pool)**; `exams.selection_mode` = `fixed` / `random`; `exams.shuffle_options` | Một cấu trúc cho cả đề cố định và ngẫu nhiên |
-| Lịch training | `TrainerUserId` | `title`, `presenter_name` | Người trình bày không phải vai trò đăng nhập |
-| Tài liệu | `FileUrl` | `kind` (`link`/`file`), `url`, `storage_key`, `file_name`, `content_type` | File lưu ngoài `public/`, tải qua route có kiểm tra quyền |
-| Tiến độ học | Không có | `material_progress` (xem / hoàn thành) | Mockup ④ hiển thị % tiến độ |
+| Khóa học | `Courses`, `CourseMaterials`, `CourseEnrollments` | **Bỏ** (2026-10-13). Không có bảng `courses`, `course_materials`, `course_enrollments`, `material_progress` | Công ty không đào tạo theo khóa; chỉ họp Meet với đại lý → ôn tập → thi |
+| Lịch training | `TrainingSessions.CourseId`, `TrainerUserId` | `training_sessions` đứng riêng: `title`, `description`, `presenter_name`, `starts_at`, `ends_at`, `meet_url`, `status`, `created_by_id` | Người trình bày không phải vai trò đăng nhập |
+| Giao lịch cho đại lý | Qua `CourseEnrollments` | `session_assignments` (`session_id`, `dealer_id`, `assigned_at`), UNIQUE (`session_id`, `dealer_id`) | Giống `exam_assignments`: tất cả / khu vực / danh sách mã |
+| Tài liệu | `CourseMaterials.FileUrl` | `session_materials` gắn vào buổi: `kind` (`link`/`file`), `url`, `storage_key`, `file_name`, `content_type`, `sort_order` | File lưu ngoài `public/`, tải qua route có kiểm tra đại lý được giao buổi |
+| Tiến độ học | Không có | Không có (đã bỏ cùng khóa học) | Không còn khái niệm "hoàn thành khóa học" |
 | Điểm danh | `Attendance` | `attendances.source = 'click'` khi đại lý bấm "Tham gia" | Điểm danh thủ công/tự động từ Meet để sau (Q8) |
 | Nhóm đại lý | `DealerGroupId` | Giao theo **khu vực** hoặc danh sách mã (bung thành từng `dealer_id`) | Q5 |
 | Collation | — | DB tạo với `Vietnamese_100_CI_AI` | Tìm kiếm tiếng Việt không dấu, không phân biệt hoa thường |

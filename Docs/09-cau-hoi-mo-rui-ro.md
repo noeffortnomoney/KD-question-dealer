@@ -31,7 +31,7 @@ Cột "Đề xuất" là phương án mặc định nếu không có phản hồ
 | Q16 | Câu hỏi đang dùng trong kỳ thi Official có được xuất hiện trong ôn tập? | Không | [06 §3](06-bao-mat.md#3-chống-lộ-đáp-án) |
 | Q17 | Có nhiều tài khoản admin không? Admin quản lý admin khác ở đâu ("Cài đặt")? | Có; trang Cài đặt quản lý admin | [03 §3](03-giao-dien.md#3-các-vấn-đề-phát-hiện-trong-mockup) |
 | Q18 | Nút "Tham gia" Meet bật từ bao nhiêu phút trước giờ học? | 15 phút | [03 §3](03-giao-dien.md#3-các-vấn-đề-phát-hiện-trong-mockup) |
-| Q19 | Thế nào là "hoàn thành khóa học" (xem hết tài liệu bắt buộc? tham dự Meet?) | Hoàn thành mọi tài liệu `IsRequired` | `CourseEnrollments.CompletedAtUtc` |
+| Q19 | Thế nào là "hoàn thành khóa học" (xem hết tài liệu bắt buộc? tham dự Meet?) | ✅ **Đã chốt 2026-10-13: bỏ khóa học.** Công ty không đào tạo theo khóa, chỉ có lịch họp Meet giữa công ty và đại lý → ôn tập → thi. Buổi training giao đại lý như kỳ thi, tài liệu gắn vào từng buổi, không theo dõi "hoàn thành" | [01](01-tong-quan-pham-vi.md), [03](03-giao-dien.md) UI-03/13/14/15, [04 §8](04-co-so-du-lieu.md) |
 | Q20 | Thời hạn lưu hồ sơ thi, log, file import | Xem bảng [06 §8](06-bao-mat.md#8-dữ-liệu-cá-nhân) | Job dọn dữ liệu |
 | Q21 | Hosting + DB: Vercel Pro + Neon Postgres (như TrackMyGoal prod) hay tự host + SQL Server (như Internal_Order_App)? | `CẦN CHỐT` — so sánh ở [10 §6](10-cong-nghe.md#6-database-và-hosting--cần-chốt). Dù chọn gì, dev/staging/prod cùng một loại DB | Ngân sách vận hành, cú pháp SQL ở 04/07, nơi lưu file |
 
@@ -51,7 +51,7 @@ Cột "Đề xuất" là phương án mặc định nếu không có phản hồ
 | D10 | Mockup vs EX-06 | Màn thi không có chỉ báo autosave/mất kết nối | Bổ sung ở wireframe |
 | D11 | Mockup ②/④ | Menu dealer không nhất quán | Chốt 1 menu |
 | D12 | Mockup ③ vs UI-23 | Menu admin thiếu Audit log | Bổ sung |
-| D13 | Mockup ④ vs schema | Hiển thị % tiến độ khóa học nhưng không có bảng tiến độ | Bổ sung `MaterialProgress` |
+| D13 | Mockup ④ vs schema | Hiển thị % tiến độ khóa học nhưng không có bảng tiến độ | Từng bổ sung `MaterialProgress`; đã bỏ cùng khóa học (Q19, 2026-10-13) |
 | D14 | Spec mục 6 `ExamAssignments` | "DealerId hoặc DealerGroupId" nhưng schema chỉ có DealerId | Q5 |
 | D15 | Spec 7.1 / k6 | Spec cho phép cookie hoặc bearer; k6 cứng Bearer | Stack dùng NextAuth cookie; script k6 đã sửa theo |
 | D16 | Spec mục 6.1 / 8 | Spec gợi ý ASP.NET Core Identity + SQL Server | Quyết định của chủ dự án: dùng stack TrackMyGoal (Next.js + Prisma + NextAuth), xem [10](10-cong-nghe.md). Cần ghi nhận thay đổi này vào spec v1.2 |
@@ -83,6 +83,8 @@ Cột "Đề xuất" là phương án mặc định nếu không có phản hồ
 | 2026-10-12 | Q21 Hosting | Đích đến Vercel + Neon Postgres, **làm sau**. Hiện dev trên SQL Server local | Chủ dự án |
 | 2026-10-12 | Kiểm thử giao diện | Dùng Playwright (chạy có giao diện, xem trực tiếp), không dùng Claude in Chrome / chụp màn hình | Chủ dự án |
 | 2026-10-12 | Q1–Q20 | Code đang chạy theo cột "Đề xuất" ở mục 1 (điểm đạt 70%, 1 đáp án, khoảng ngày, email + mật khẩu, giao theo khu vực/mã, điểm ngay + đáp án sau khi đóng, không gửi email, điểm danh khi bấm "Tham gia", 1 đại lý = 1 tài khoản, cắt deadline theo giờ đóng, grace 10 giây, `reasonCategory`, đánh dấu câu lưu ở trình duyệt, mật khẩu tạm + bắt đổi, mã trùng khi import = báo lỗi, câu trong kỳ thi đang mở bị loại khỏi ôn tập, nhiều admin + trang Cài đặt, nút Meet mở trước 15 phút, hoàn thành khóa = xong tài liệu bắt buộc) | Mặc định, **chờ chủ dự án xác nhận** |
+| 2026-10-13 | Quyền xem Audit log | Chỉ `admin@kymdan.local` thấy menu và trang Audit log; quản trị viên khác không có màn hình này. Chi tiết: [06 §5](06-bao-mat.md#5-audit-log) | Chủ dự án |
+| 2026-10-13 | Q14 Mật khẩu | Tài khoản mới dùng mật khẩu mặc định `123456` (vẫn bắt đổi lần đầu); đổi / cấp lại mật khẩu chỉ cần tối thiểu 6 ký tự, không bắt buộc chữ. Admin cấp lại thì nhập mật khẩu (điền sẵn `123456`). Chi tiết + rủi ro: [06 §1](06-bao-mat.md#1-xác-thực) | Chủ dự án |
 
 ## 5. Cập nhật rủi ro sau khi code
 

@@ -1,4 +1,4 @@
-import { AlertTriangle, BookOpen, ChevronRight, ClipboardList, Info, Trophy, Users } from "lucide-react";
+import { AlertTriangle, CalendarDays, ChevronRight, ClipboardList, Info, Trophy, Users } from "lucide-react";
 import Link from "next/link";
 import { AvgScoreBars } from "@/components/admin/charts/AvgScoreBars";
 import { ParticipationBar } from "@/components/admin/charts/ParticipationBar";
@@ -7,10 +7,11 @@ import { PageHeader } from "@/components/common/PageHeader";
 import { StatCard } from "@/components/common/StatCard";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { SttCell, SttHead } from "@/components/common/RowNumber";
 import { getAdminDashboard } from "@/lib/admin-stats";
 import { formatDate } from "@/lib/date-utils";
 import { formatPercent } from "@/lib/format";
-import { EXAM_STATUS } from "@/lib/labels";
+import { EXAM_PHASE_LABEL, examPhase } from "@/lib/exam-status";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Tổng quan — Kymdan" };
@@ -37,7 +38,7 @@ export default async function AdminDashboard() {
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label="Đại lý hoạt động" value={d.kpi.activeDealers} hint={d.kpi.lockedDealers ? `${d.kpi.lockedDealers} đang khóa` : undefined} icon={Users} tone="info" />
-        <StatCard label="Khóa đào tạo đã xuất bản" value={d.kpi.publishedCourses} icon={BookOpen} tone="success" />
+        <StatCard label="Lịch training sắp tới" value={d.kpi.upcomingSessions} icon={CalendarDays} tone="success" />
         <StatCard label="Kỳ thi đang mở" value={d.kpi.openExams} icon={ClipboardList} tone="brand" />
         <StatCard label="Tỷ lệ đạt trung bình" value={formatPercent(d.kpi.passRate)} hint={`${d.kpi.finishedAttempts} bài đã chấm`} icon={Trophy} tone="warning" />
       </div>
@@ -93,6 +94,7 @@ export default async function AdminDashboard() {
           <Table>
             <TableHeader>
               <TableRow>
+                <SttHead />
                 <TableHead>Tên kỳ thi</TableHead>
                 <TableHead>Thời gian</TableHead>
                 <TableHead className="text-right">Đã thi / Được giao</TableHead>
@@ -102,8 +104,9 @@ export default async function AdminDashboard() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {[...d.examStats].reverse().map((e) => (
+              {[...d.examStats].reverse().map((e, i) => (
                 <TableRow key={e.id}>
+                  <SttCell n={i + 1} />
                   <TableCell>
                     <Link href={`/admin/reports?exam=${e.id}`} className="font-medium hover:text-brand">
                       {e.title}
@@ -118,7 +121,7 @@ export default async function AdminDashboard() {
                   <TableCell className="text-right tabular-nums">{e.avgScore?.toLocaleString("vi-VN") ?? "—"}</TableCell>
                   <TableCell className="text-right tabular-nums">{formatPercent(e.passRate)}</TableCell>
                   <TableCell>
-                    <StatusBadge map={EXAM_STATUS} value={e.status} />
+                    <StatusBadge map={EXAM_PHASE_LABEL} value={examPhase(e)} />
                   </TableCell>
                 </TableRow>
               ))}

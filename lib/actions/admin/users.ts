@@ -5,7 +5,7 @@ import { z } from "zod";
 import { requireAdmin } from "@/lib/auth-guard";
 import { writeAudit } from "@/lib/audit";
 import { isGuid, sameId } from "@/lib/ids";
-import { generateTempPassword, hashPassword } from "@/lib/password";
+import { DEFAULT_PASSWORD, hashPassword, passwordProblem } from "@/lib/password";
 import { isUniqueViolation, prisma } from "@/lib/prisma";
 
 const adminSchema = z.object({
@@ -18,7 +18,7 @@ export async function createAdminAction(input: { name: string; email: string }) 
   if ("error" in g) return { error: g.error };
   const parsed = adminSchema.safeParse(input);
   if (!parsed.success) return { error: parsed.error.errors[0].message };
-  const tempPassword = generateTempPassword();
+  const tempPassword = DEFAULT_PASSWORD;
   try {
     const user = await prisma.user.create({
       data: { ...parsed.data, role: "admin", passwordHash: await hashPassword(tempPassword), mustChangePassword: true },
@@ -47,13 +47,15 @@ export async function setAdminStatusAction(userId: string, status: "active" | "l
   return { success: true, message: status === "locked" ? "Đã khóa" : "Đã mở khóa" };
 }
 
-export async function resetAdminPasswordAction(userId: string) {
+export async function resetAdminPasswordAction(userId: string, newPassword: string = DEFAULT_PASSWORD) {
   const g = await requireAdmin();
   if ("error" in g) return { error: g.error };
   if (!isGuid(userId)) return { error: "Không tìm thấy tài khoản" };
+  const tempPassword = String(newPassword ?? "");
+  const problem = passwordProblem(tempPassword);
+  if (problem) return { error: problem };
   const user = await prisma.user.findFirst({ where: { id: userId, role: "admin" }, select: { email: true } });
   if (!user) return { error: "Không tìm thấy tài khoản" };
-  const tempPassword = generateTempPassword();
   await prisma.user.update({
     where: { id: userId },
     data: { passwordHash: await hashPassword(tempPassword), mustChangePassword: true, failedLoginCount: 0, lockedUntil: null },

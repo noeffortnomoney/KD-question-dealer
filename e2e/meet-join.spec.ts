@@ -1,29 +1,24 @@
 import { expect, test } from "@playwright/test";
-import { cleanupTestCourses, createSessionFixture } from "./db";
+import { cleanupTestSessions, createSessionFixture } from "./db";
 import { ADMIN, dealer, login } from "./helpers";
 
 const stamp = Date.now();
-const COURSE = `E2E khóa Meet ${stamp}`;
 const LIVE = `E2E buổi đang diễn ra ${stamp}`;
 const LATER = `E2E buổi chưa tới giờ ${stamp}`;
 const MEET_URL = "https://meet.google.com/abc-defg-hij";
 
-let courseId = "";
-
 test.beforeAll(async () => {
-  const course = await createSessionFixture({
-    title: COURSE,
+  await createSessionFixture({
     dealerEmails: ["dealer02@kymdan.local"],
     sessions: [
       { title: LIVE, startOffsetMin: -20, durationMin: 120, meetUrl: MEET_URL },
       { title: LATER, startOffsetMin: 180, durationMin: 60, meetUrl: "https://meet.google.com/zzz-zzzz-zzz" },
     ],
   });
-  courseId = course.id;
 });
 
 test.afterAll(async () => {
-  await cleanupTestCourses();
+  await cleanupTestSessions();
 });
 
 test("đại lý bấm Tham gia: mở thẳng Google Meet, được điểm danh; buổi chưa tới giờ thì khóa nút", async ({ page, context }) => {
@@ -57,12 +52,10 @@ test("đại lý bấm Tham gia: mở thẳng Google Meet, được điểm danh
 
 test("admin thấy trạng thái theo giờ thực và số người đã tham gia", async ({ page }) => {
   await login(page, ADMIN);
-  await page.goto(`/admin/courses/${courseId}?tab=sessions`);
+  await page.goto("/admin/training-sessions?scope=upcoming");
   const liveRow = page.getByRole("row", { name: new RegExp(LIVE) });
   await expect(liveRow.getByText("Đang diễn ra", { exact: true })).toBeVisible();
-  await expect(liveRow.getByRole("link", { name: "1/1 · Điểm danh" })).toBeVisible();
+  await expect(liveRow.getByTestId("session-joined")).toHaveText("1/1");
+  await expect(liveRow.getByRole("link", { name: "Điểm danh" })).toBeVisible();
   await expect(page.getByRole("row", { name: new RegExp(LATER) }).getByText("Sắp diễn ra", { exact: true })).toBeVisible();
-
-  await page.goto("/admin/training-sessions?scope=upcoming");
-  await expect(page.getByRole("row", { name: new RegExp(LIVE) }).getByText("Đang diễn ra", { exact: true })).toBeVisible();
 });

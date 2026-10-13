@@ -30,7 +30,7 @@ test("thêm đại lý, đại lý đăng nhập lần đầu bị buộc đổi
   await dialog.getByRole("button", { name: "Lưu" }).click();
   await dialog.getByRole("button", { name: "Xác nhận" }).click();
   const temp = (await dialog.getByTestId("temp-password").textContent())!.trim();
-  expect(temp.length).toBeGreaterThanOrEqual(8);
+  expect(temp).toBe("123456");
   await page.keyboard.press("Escape");
   await expect(page.getByRole("cell", { name: "E2E001", exact: true })).toBeVisible();
 
@@ -51,11 +51,11 @@ test("import đại lý từ CSV: xem trước, báo lỗi theo dòng, xác nh�
   await login(page, ADMIN);
   await page.goto("/admin/dealers/import");
   const csv = [
-    "Mã đại lý,Tên đại lý,Họ tên người dùng,Email đăng nhập,Số điện thoại,Khu vực,Mật khẩu tạm",
-    "IMP001,Đại lý Import 1,Nguyễn Import,imp001@kymdan.local,0909000001,Cần Thơ,",
-    "IMP002,Đại lý Import 2,Trần Import,imp002@kymdan.local,,Cần Thơ,",
-    "HCM001,Trùng mã,Lê Trùng,trung@kymdan.local,,,",
-    ",Thiếu mã,Phạm Thiếu,khong-hop-le,,,",
+    "Mã đại lý,Tên đại lý,Họ tên người dùng,Email đăng nhập,Số điện thoại,Khu vực",
+    "IMP001,Đại lý Import 1,Nguyễn Import,imp001@kymdan.local,0909000001,Cần Thơ",
+    "IMP002,Đại lý Import 2,Trần Import,imp002@kymdan.local,,Cần Thơ",
+    "HCM001,Trùng mã,Lê Trùng,trung@kymdan.local,,",
+    ",Thiếu mã,Phạm Thiếu,khong-hop-le,,",
   ].join("\n");
   await page.locator("input[type=file]").setInputFiles({ name: "dai-ly.csv", mimeType: "text/csv", buffer: Buffer.from(csv, "utf8") });
   await page.getByRole("button", { name: /Tải lên & kiểm tra/ }).click();
@@ -65,7 +65,7 @@ test("import đại lý từ CSV: xem trước, báo lỗi theo dòng, xác nh�
   await expect(page.getByRole("link", { name: /Tải file dòng lỗi/ })).toBeVisible();
   await page.getByRole("button", { name: "Xác nhận import" }).click();
   await expect(page.getByRole("main").getByText("Đã tạo 2 đại lý")).toBeVisible();
-  await expect(page.getByRole("button", { name: /Tải danh sách mật khẩu tạm/ })).toBeVisible();
+  await expect(page.getByTestId("import-default-password")).toContainText("123456");
   await page.goto("/admin/dealers?q=IMP");
   await expect(page.getByRole("cell", { name: "IMP001", exact: true })).toBeVisible();
   await expect(page.getByRole("cell", { name: "IMP002", exact: true })).toBeVisible();
@@ -143,11 +143,12 @@ test("báo cáo: xem chi tiết lượt thi, cấp lại lượt có lý do, ghi
   await expect(page.getByText("Cấp lại lượt thi").first()).toBeVisible();
 });
 
-test("khóa học: thêm tài liệu dạng link", async ({ page }) => {
+test("lịch training: thêm tài liệu dạng link vào buổi training", async ({ page }) => {
   await login(page, ADMIN);
-  await page.goto("/admin/courses");
+  await expect(page.getByRole("link", { name: "Khóa đào tạo" })).toHaveCount(0);
+  await page.goto("/admin/training-sessions?scope=all");
   await page.getByRole("link", { name: "Kỹ năng tư vấn bán hàng" }).click();
-  await page.getByRole("link", { name: "Tài liệu" }).click();
+  await page.getByRole("link", { name: /^Tài liệu \(\d+\)$/ }).click();
   await page.locator("form input").first().fill("Tài liệu kiểm thử E2E");
   await page.getByPlaceholder("https://").fill("https://example.com/e2e");
   await page.getByRole("button", { name: "Thêm tài liệu" }).click();

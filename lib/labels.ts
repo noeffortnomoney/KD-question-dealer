@@ -39,6 +39,8 @@ export const SESSION_STATUS: Record<string, Label> = {
 
 export const DIFFICULTY: Record<number, string> = { 1: "Dễ", 2: "Trung bình", 3: "Khó" };
 
+export const DIFFICULTY_TONE: Record<number, Tone> = { 1: "success", 2: "info", 3: "warning" };
+
 export const POLICY_LABEL: Record<string, string> = {
   after_submit: "Ngay sau khi nộp",
   after_exam_ends: "Sau khi kỳ thi kết thúc",

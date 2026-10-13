@@ -5,7 +5,7 @@ import { writeAudit } from "@/lib/audit";
 import { apiError, guardResponse, readJson } from "@/lib/http";
 import { guidSchema } from "@/lib/ids";
 import { findExisting } from "@/lib/import/existing";
-import { generateTempPassword, hashPassword } from "@/lib/password";
+import { DEFAULT_PASSWORD, hashPassword } from "@/lib/password";
 import { prisma } from "@/lib/prisma";
 
 export const maxDuration = 300;
@@ -19,7 +19,6 @@ interface StoredRow {
   email: string;
   phone: string;
   region: string;
-  passwordHash: string | null;
 }
 
 export async function POST(request: Request) {
@@ -52,17 +51,7 @@ export async function POST(request: Request) {
     .map((d) => ({ row: d.rowNumber, code: d.code, reason: "Mã đại lý hoặc email vừa được tạo bởi thao tác khác" }));
   const toCreate = data.filter((d) => !existing.codes.has(d.code) && !existing.emails.has(d.email));
 
-  const credentials: { code: string; email: string; tempPassword: string }[] = [];
-  const prepared: (StoredRow & { rowNumber: number; passwordHash: string })[] = [];
-  for (const d of toCreate) {
-    let hash = d.passwordHash;
-    if (!hash) {
-      const temp = generateTempPassword();
-      hash = await hashPassword(temp);
-      credentials.push({ code: d.code, email: d.email, tempPassword: temp });
-    }
-    prepared.push({ ...d, passwordHash: hash });
-  }
+  const passwordHash = await hashPassword(DEFAULT_PASSWORD);
 
   const created = await prisma.$transaction(
     async (tx) => {
@@ -71,7 +60,7 @@ export async function POST(request: Request) {
         data: { status: "committed", committedAt: new Date() },
       });
       if (flipped.count === 0) return null;
-      for (const d of prepared) {
+      for (const d of toCreate) {
         await tx.dealer.create({
           data: {
             code: d.code,
@@ -82,7 +71,7 @@ export async function POST(request: Request) {
               create: {
                 email: d.email,
                 name: d.userName,
-                passwordHash: d.passwordHash,
+                passwordHash,
                 role: "dealer",
                 mustChangePassword: true,
               },
@@ -96,11 +85,11 @@ export async function POST(request: Request) {
           action: "Dealer.Import",
           entityType: "ImportJob",
           entityId: job.id,
-          details: { fileName: job.fileName, created: prepared.length, skipped: skipped.length },
+          details: { fileName: job.fileName, created: toCreate.length, skipped: skipped.length },
         },
         tx
       );
-      return prepared.length;
+      return toCreate.length;
     },
     { timeout: 120_000, maxWait: 10_000 }
   );
@@ -108,5 +97,5 @@ export async function POST(request: Request) {
   if (created === null) return apiError(409, "CONFLICT", "Phiên import này đã được xác nhận");
   await prisma.importRow.updateMany({ where: { jobId: job.id, isValid: true }, data: { payload: "{}" } });
 
-  return NextResponse.json({ created, skipped, credentials });
+  return NextResponse.json({ created, skipped, defaultPassword: DEFAULT_PASSWORD });
 }

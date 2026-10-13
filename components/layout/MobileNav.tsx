@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import type { UserRole } from "@/lib/roles";
 
-export function MobileNav({ role }: { role: UserRole }) {
+export function MobileNav({ role, canViewAudit = false }: { role: UserRole; canViewAudit?: boolean }) {
   const [open, setOpen] = useState(false);
   return (
     <Sheet open={open} onOpenChange={setOpen}>
@@ -25,7 +25,7 @@ export function MobileNav({ role }: { role: UserRole }) {
             </div>
           </SheetTitle>
         </SheetHeader>
-        <SidebarNav role={role} onNavigate={() => setOpen(false)} />
+        <SidebarNav role={role} canViewAudit={canViewAudit} onNavigate={() => setOpen(false)} />
       </SheetContent>
     </Sheet>
   );

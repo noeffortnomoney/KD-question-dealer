@@ -25,15 +25,17 @@ test("đại lý xem trang chủ, không vào được trang quản trị", asyn
   await expect(page).toHaveURL(/\/dashboard/);
 });
 
-test("khóa học: xem tài liệu và lịch training", async ({ page }) => {
+test("lịch training: xem nội dung và tài liệu đính kèm, không còn menu khóa đào tạo", async ({ page }) => {
   await login(page, dealer(1));
-  await page.getByRole("link", { name: "Khóa đào tạo" }).first().click();
-  await expect(page.getByRole("heading", { name: "Khóa đào tạo", level: 1 })).toBeVisible();
-  await page.getByRole("link", { name: /Tiếp tục|Học ngay|Xem lại/ }).first().click();
-  await expect(page.getByRole("heading", { name: "Tài liệu" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Lịch training" })).toBeVisible();
-  await page.goto("/training-sessions?tab=all");
-  await expect(page.getByText("Google Meet").first()).toBeVisible();
+  await expect(page.getByRole("link", { name: "Khóa đào tạo" })).toHaveCount(0);
+  await page.getByRole("link", { name: "Lịch training" }).first().click();
+  await expect(page.getByRole("heading", { name: "Lịch training", level: 1 })).toBeVisible();
+  const row = page.getByTestId("session-row").filter({ hasText: "Giới thiệu sản phẩm mới" });
+  await expect(row.getByText("Tổng quan danh mục sản phẩm")).toBeVisible();
+  const material = row.getByRole("link", { name: /Tổng quan dòng sản phẩm/ });
+  await expect(material).toHaveAttribute("href", /^https:\/\/example\.com\//);
+  await expect(material).toHaveAttribute("target", "_blank");
+  expect((await page.goto("/courses"))?.status()).toBe(404);
 });
 
 test("luyện tập: trả lời một câu và thấy giải thích", async ({ page }) => {

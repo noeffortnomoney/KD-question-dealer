@@ -65,11 +65,8 @@ Spec liệt kê `POST /api/auth/login`; với NextAuth, đăng nhập/đăng xu�
 | Method | Endpoint | Mục đích |
 |---|---|---|
 | GET | `/dealer/dashboard` | Dữ liệu UI-02 trong một lần gọi |
-| GET | `/courses` | Khóa học được giao (`?status=open|upcoming|completed`) |
-| GET | `/courses/{courseId}` | Chi tiết, tài liệu, tiến độ, lịch |
-| GET | `/courses/{courseId}/materials/{materialId}/download` | Trả signed URL có hạn + ghi `MaterialProgress` *(bổ sung)* |
-| POST | `/courses/{courseId}/materials/{materialId}/complete` | Đánh dấu hoàn thành tài liệu *(bổ sung)* |
-| GET | `/training-sessions?scope=upcoming|past|all` | Lịch training + link Meet (spec: `/training-sessions/upcoming`) |
+| GET | `/training-sessions?scope=upcoming|past|all` | Buổi training được giao + nội dung + tài liệu đính kèm + link Meet (spec: `/training-sessions/upcoming`). Spec có `/courses*` — **bỏ** 2026-10-13 cùng khái niệm khóa học |
+| GET | `/materials/{materialId}/download` | Tải file tài liệu của buổi training; đại lý chỉ tải được khi được giao buổi đó và buổi chưa bị hủy, ngược lại 404 |
 | GET | `/practice/categories` | Chủ đề ôn tập |
 | POST | `/practice/sessions` | Tạo phiên ôn tập |
 | GET | `/practice/sessions/{id}` | Lấy phiên (khôi phục khi F5) *(bổ sung)* |
@@ -86,7 +83,7 @@ Spec liệt kê `POST /api/auth/login`; với NextAuth, đăng nhập/đăng xu�
 
 ### Quản trị
 
-Các dòng `CRUD`, `lock/unlock`, `publish/close`, `assignments`, `enrollments`, `attendance`, `reissue` hiện thực bằng **Server Action** (đường dẫn trong bảng chỉ để gọi tên chức năng). Upload/import, export file và tải file lỗi dùng **Route Handler** vì cần `multipart` hoặc trả file.
+Các dòng `CRUD`, `lock/unlock`, `publish/close`, `assignments`, `attendance`, `reissue` hiện thực bằng **Server Action** (đường dẫn trong bảng chỉ để gọi tên chức năng). Upload/import, export file và tải file lỗi dùng **Route Handler** vì cần `multipart` hoặc trả file.
 
 | Method | Endpoint | Mục đích |
 |---|---|---|
@@ -98,10 +95,9 @@ Các dòng `CRUD`, `lock/unlock`, `publish/close`, `assignments`, `enrollments`,
 | POST | `/admin/dealers/import/commit` | Xác nhận import theo `jobId` |
 | GET | `/admin/dealers/imports/{jobId}/errors` | Tải file lỗi (XLSX/CSV) |
 | GET | `/admin/dealers/export` | Export danh sách *(bổ sung)* |
-| CRUD | `/admin/courses` | Khóa học |
-| CRUD | `/admin/courses/{id}/materials` | Tài liệu, upload file *(bổ sung)* |
-| CRUD | `/admin/courses/{id}/sessions` | Lịch training *(bổ sung)* |
-| PUT | `/admin/courses/{id}/enrollments` | Phân công đại lý *(bổ sung)* |
+| CRUD | `/admin/training-sessions` | Lịch training: tạo (kèm giao đại lý), sửa, hủy/khôi phục *(bổ sung)* — Server Action `lib/actions/admin/sessions.ts` |
+| PUT | `/admin/training-sessions/{id}/assignments` | Giao thêm / bỏ giao đại lý *(bổ sung)* |
+| CRUD | `/admin/training-sessions/{id}/materials` | Tài liệu buổi training: link (Server Action), đổi thứ tự, xóa; upload file = Route Handler `POST /api/admin/training-sessions/{sessionId}/materials` (multipart `file`, `title`; ≤ 25 MB; pdf/docx/xlsx/pptx/png/jpg/mp4) → `201 { materialId }` |
 | PUT | `/admin/sessions/{id}/attendance` | Nhập điểm danh thủ công *(bổ sung)* |
 | CRUD | `/admin/question-categories` | Chủ đề *(bổ sung)* |
 | CRUD | `/admin/questions` | Ngân hàng câu hỏi |
@@ -248,6 +244,8 @@ Lỗi theo dòng tối thiểu: `REQUIRED`, `INVALID_FORMAT`, `DUPLICATE_IN_FILE
 | Số điện thoại | | ≤ 30, chỉ số và `+` |
 | Khu vực | | Thuộc danh mục khu vực nếu có |
 
+**Hiện thực (2026-10-13):** file mẫu đúng 6 cột trên, **không có cột mật khẩu**. Mọi tài khoản import nhận mật khẩu mặc định `123456` + bắt đổi lần đầu. File cũ còn cột "Mật khẩu tạm" vẫn đọc được, cột đó bị bỏ qua. `POST /api/admin/dealers/import/commit` trả `{ created, skipped[], defaultPassword }` (không còn danh sách `credentials`).
+
 Chống CSV/Excel injection khi **export**: ô bắt đầu bằng `=`, `+`, `-`, `@` phải được thêm tiền tố `'`.
 
 ## 4. Trạng thái hiện thực (2026-10-12)
@@ -260,8 +258,8 @@ Chống CSV/Excel injection khi **export**: ô bắt đầu bằng `=`, `+`, `-`
 | Đổi mật khẩu | ✅ Server Action `changePasswordAction`; bắt buộc khi `mustChangePassword` |
 | Quên mật khẩu / đặt lại qua email | ⏳ **Chưa làm** — chưa có dịch vụ email (Q7). Hiện admin cấp lại mật khẩu tạm ở `/admin/dealers` |
 | Import / export / tải file lỗi / template | ✅ Route Handler như bảng mục 2 |
-| Tải tài liệu khóa học | ✅ `GET /api/materials/{id}/download` (kiểm tra đại lý được giao + ghi tiến độ). Upload: `POST /api/admin/courses/{courseId}/materials` |
-| CRUD quản trị, giao kỳ thi / khóa học, cấp lại lượt | ✅ Server Action trong `lib/actions/admin/*` |
+| Tài liệu buổi training | ✅ `GET /api/materials/{id}/download` (đại lý phải được giao buổi, buổi chưa hủy; không còn ghi tiến độ). Upload: `POST /api/admin/training-sessions/{sessionId}/materials` (đổi từ `/api/admin/courses/{courseId}/materials` ngày 2026-10-13) |
+| CRUD quản trị, giao kỳ thi / buổi training, cấp lại lượt | ✅ Server Action trong `lib/actions/admin/*` |
 | Dashboard đại lý / admin, `/me/attempts` | ✅ Render phía server (`/dashboard`, `/admin`, `/my-results`), không tách API riêng |
 | Cron hết giờ | ✅ `GET /api/cron/expire-attempts` với `Authorization: Bearer $CRON_SECRET`; đồng thời dọn phiên import hết hạn |
 | Rate limit | ⏳ **Chưa làm** — xem [06 §4](06-bao-mat.md#4-rate-limit). Hiện chỉ có khóa tài khoản sau 5 lần đăng nhập sai |

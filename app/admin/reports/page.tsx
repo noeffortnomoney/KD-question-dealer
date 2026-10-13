@@ -12,12 +12,13 @@ import { formatDateTime } from "@/lib/date-utils";
 import { formatPercent } from "@/lib/format";
 import { isGuid } from "@/lib/ids";
 import { prisma } from "@/lib/prisma";
-import { REPORT_STATUS_LABEL, getExamReport } from "@/lib/reports";
+import { REPORT_DEFAULT_SORT, REPORT_SORT_KEYS, REPORT_STATUS_LABEL, getExamReport, sortReportRows } from "@/lib/reports";
+import { parseSort } from "@/lib/sort";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Kết quả & báo cáo — Kymdan" };
 
-type SP = { exam?: string; region?: string; status?: string; result?: string; q?: string; page?: string; size?: string };
+type SP = { exam?: string; region?: string; status?: string; result?: string; q?: string; page?: string; size?: string; sort?: string; dir?: string };
 
 export default async function ReportsPage({ searchParams }: { searchParams: Promise<SP> }) {
   const sp = await searchParams;
@@ -39,10 +40,14 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
   }
 
   const size = parsePageSize(sp.size);
-  const pageRows = paginate(report.rows, parsePage(sp.page), size);
+  const sort = parseSort(sp, REPORT_SORT_KEYS, REPORT_DEFAULT_SORT);
+  const pageRows = paginate(sortReportRows(report.rows, sort), parsePage(sp.page), size);
 
   const exportParams = new URLSearchParams(
-    Object.entries({ region: sp.region, status: sp.status, result: sp.result, q: sp.q }).filter(([, v]) => v) as [string, string][]
+    Object.entries({ region: sp.region, status: sp.status, result: sp.result, q: sp.q, sort: sp.sort, dir: sp.dir }).filter(([, v]) => v) as [
+      string,
+      string,
+    ][]
   );
   const exportUrl = (format: string) => {
     const p = new URLSearchParams(exportParams);
@@ -105,7 +110,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
         basePath="/admin/reports"
         q={sp.q}
         placeholder="Tìm mã hoặc tên đại lý…"
-        hidden={{ exam: report.exam.id }}
+        hidden={{ exam: report.exam.id, sort: sp.sort, dir: sp.dir }}
         selects={[
           { name: "region", label: "Tất cả khu vực", value: sp.region, options: report.regions.map((r) => ({ value: r, label: r })) },
           {
@@ -131,9 +136,11 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
       ) : (
         <div className="rounded-xl border bg-card">
           <p className="border-b px-4 py-2 text-xs text-muted-foreground">
-            {report.rows.length} dòng · Bấm vào dòng đã thi để xem chi tiết bài làm hoặc cấp lại lượt
+            {report.rows.length} dòng · Bấm tiêu đề cột để sắp xếp · Bấm vào dòng đã thi (hoặc biểu tượng con mắt) để xem bài làm hoặc cấp lại lượt
           </p>
           <ReportTable
+            sort={sort}
+            offset={pageRows.offset}
             rows={pageRows.items.map((r) => ({
               ...r,
               startedAt: r.startedAt?.toISOString() ?? null,

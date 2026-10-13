@@ -23,7 +23,7 @@ Thành phần **thêm mới** (TrackMyGoal không có):
 |---|---|
 | Kiểm thử tải | k6 ([07](07-kiem-thu-tai.md)) |
 | Job định kỳ (attempt hết giờ, dọn file import) | Vercel Cron gọi Route Handler có `CRON_SECRET` (Pro: tối thiểu 1 phút/lần; Hobby chỉ 1 lần/ngày) |
-| Lưu file tài liệu khóa học | Vercel Blob hoặc object storage tương đương (function Vercel không có ổ đĩa bền) |
+| Lưu file tài liệu buổi training | Vercel Blob hoặc object storage tương đương (function Vercel không có ổ đĩa bền) |
 | Rate limit | Lưu bộ đếm ở DB hoặc Redis/Upstash — bộ đếm in-memory không dùng được khi chạy nhiều instance serverless |
 | Unit test | Vitest — `lib/**/*.test.ts` (`npm test`) |
 | Test giao diện e2e | **Playwright** — `e2e/*.spec.ts`. Mặc định chạy **có giao diện** (cửa sổ Chromium thật, slowMo 150 ms) để xem trực tiếp; `npm run test:e2e:ui` mở Playwright UI; `npm run test:e2e:ci` chạy headless. Không dùng Claude in Chrome / chụp màn hình để test (tốn token) |
@@ -35,10 +35,10 @@ Bám theo TrackMyGoal (không dùng `src/`, alias `@/`):
 ```
 app/
   (auth)/login, change-password
-  (dealer)/dashboard, courses, courses/[courseId], training-sessions, practice, practice/[sessionId],
+  (dealer)/dashboard, training-sessions, practice, practice/[sessionId],
            exams, exams/[examId], my-results
   (exam)/attempts/[attemptId], attempts/[attemptId]/result
-  admin/ (page = dashboard), dealers, dealers/import, courses, courses/[id], training-sessions,
+  admin/ (page = dashboard), dealers, dealers/import, training-sessions, training-sessions/[sessionId],
          questions, questions/[id], exams, exams/[id], reports, audit-logs, settings
   api/auth/[...nextauth]
   api/exams/available, api/exams/[examId]/attempts
@@ -47,24 +47,24 @@ app/
   api/materials/[materialId]/download
   api/admin/dealers/import/{template,preview,commit}, api/admin/dealers/imports/[jobId]/errors,
   api/admin/dealers/export, api/admin/reports/exams/[examId]/export,
-  api/admin/courses/[courseId]/materials
+  api/admin/training-sessions/[sessionId]/materials, …/attendance/export
   api/cron/expire-attempts
 components/
   ui/            shadcn (lấy từ TrackMyGoal)
   layout/        AppShell, SidebarNav, MobileNav, UserMenu, Brand, nav.ts
   common/        PageHeader, StatCard, StatusBadge, FilterBar, Pagination, ConfirmAction, Field, EmptyState
   exam/          ExamRoom, QuestionGrid, OptionList, Countdown, SaveIndicator, SubmitDialog, StartExamButton, ExamActionButton
-  learning/      SessionRow, JoinMeetButton, MaterialItem, SessionDateBadge
+  learning/      SessionRow (kèm nội dung + tài liệu), JoinMeetButton, SessionDateBadge
   practice/      PracticeStart, PracticeRunner
   admin/         DealerDialog, ImportWizard, QuestionForm, CategoryManager, ExamForm, AddExamQuestions,
-                 AssignDealersDialog, CourseForm, MaterialManager, SessionDialog, ReportTable, AttemptDrawer,
+                 AssignDealersDialog, MaterialManager, SessionDialog, ReportTable, AttemptDrawer,
                  CreateAdminDialog, ResetPasswordButton, CredentialNotice, charts/
 lib/
   auth.ts, auth.config.ts, auth-guard.ts, roles.ts, prisma.ts, http.ts, ids.ts, audit.ts
   exam/          engine.ts, grading.ts, policy.ts, select.ts, snapshot.ts, types.ts, exam.test.ts
   import/        dealer-import.ts (+ test), excel.ts, existing.ts
-  actions/       auth.ts, learning.ts, admin/{dealers,questions,exams,courses,attempts,users}.ts
-  queries/       dealers.ts, learning.ts
+  actions/       auth.ts, learning.ts, admin/{dealers,questions,exams,sessions,attempts,users}.ts
+  queries/       dealers.ts, learning.ts, attendance.ts
   practice.ts, reports.ts, admin-stats.ts, assign.ts, storage.ts, password.ts, date-utils.ts, format.ts, labels.ts
 prisma/          schema.prisma, seed.ts, seed-data.ts
 scripts/         create-user.ts, seed-loadtest.ts
@@ -142,7 +142,7 @@ Khi chuyển sang Neon:
 1. Đổi `provider = "postgresql"` trong `schema.prisma`; bỏ các `@db.NVarChar`, `@db.UniqueIdentifier`, `dbgenerated("NEWSEQUENTIALID()")`, thay bằng `@db.Uuid` + `@default(uuid())`, `@db.Text`.
 2. Dev local cũng chuyển sang Postgres (Neon branch hoặc Postgres local) — **không** giữ hai provider như TrackMyGoal, vì luật chống trùng dựa vào unique index và khóa dòng trong transaction.
 3. Chạy lại `npm test`, `npm run test:e2e` và smoke test luồng thi trên Postgres.
-4. File tài liệu khóa học: chuyển `lib/storage.ts` sang Vercel Blob (function Vercel không có ổ đĩa bền).
+4. File tài liệu buổi training: chuyển `lib/storage.ts` sang Vercel Blob (function Vercel không có ổ đĩa bền).
 5. Thêm `vercel.json` với cron gọi `/api/cron/expire-attempts` mỗi phút (cần gói Pro), biến `CRON_SECRET`.
 
 TrackMyGoal đang chạy **hai** provider: MSSQL ở dev và Neon Postgres ở prod, với `scripts/prepare-schema.js` chép `postgres.prisma` đè `schema.prisma` khi build trên Vercel. Cách này chấp nhận được cho app cá nhân, nhưng **không nên lặp lại** ở hệ thống thi.

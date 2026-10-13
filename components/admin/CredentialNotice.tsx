@@ -24,7 +24,7 @@ export function CredentialNotice({ email, password }: { email: string; password:
           {password}
         </dd>
       </dl>
-      <p className="mt-2 text-xs text-amber-800">Đại lý sẽ phải đổi mật khẩu ở lần đăng nhập đầu tiên.</p>
+      <p className="mt-2 text-xs text-amber-800">Người dùng sẽ phải đổi mật khẩu ở lần đăng nhập đầu tiên.</p>
       <Button size="sm" variant="outline" className="mt-3" onClick={copy}>
         <Copy className="size-3.5" /> Sao chép
       </Button>

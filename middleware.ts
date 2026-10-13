@@ -24,7 +24,7 @@ export default auth((req) => {
     return NextResponse.redirect(new URL(homePathFor(role), req.url));
   }
 
-  if (!canAccessPath(role, pathname)) {
+  if (!canAccessPath(role, pathname, req.auth.user.email)) {
     return NextResponse.redirect(new URL(homePathFor(role), req.url));
   }
 });

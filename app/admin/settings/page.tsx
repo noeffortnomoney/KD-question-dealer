@@ -7,11 +7,14 @@ import { PageHeader } from "@/components/common/PageHeader";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { SttCell, SttHead } from "@/components/common/RowNumber";
+import { ActionIcon, ActionsCell, ActionsHead, EmptyValue } from "@/components/common/TableParts";
 import { resetAdminPasswordAction, setAdminStatusAction } from "@/lib/actions/admin/users";
 import { requireAdmin } from "@/lib/auth-guard";
 import { formatDateTime } from "@/lib/date-utils";
 import { sameId } from "@/lib/ids";
 import { ACCOUNT_STATUS } from "@/lib/labels";
+import { DEFAULT_PASSWORD, PASSWORD_MIN_LENGTH } from "@/lib/password-rules";
 import { prisma } from "@/lib/prisma";
 import { Pagination } from "@/components/common/Pagination";
 import { paginate, parsePage, parsePageSize } from "@/lib/pagination";
@@ -26,8 +29,8 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
   const me = "error" in g ? null : g.userId;
   const allAdmins = await prisma.user.findMany({
     where: { role: "admin" },
-    orderBy: { createdAt: "asc" },
-    select: { id: true, name: true, email: true, status: true, lastLoginAt: true, mustChangePassword: true },
+    orderBy: { createdAt: "desc" },
+    select: { id: true, name: true, email: true, status: true, lastLoginAt: true, mustChangePassword: true, createdAt: true },
   });
   const adminPage = paginate(allAdmins, parsePage(sp.page), size);
 
@@ -52,32 +55,36 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
         <Table>
           <TableHeader>
             <TableRow>
+              <SttHead />
               <TableHead>Họ tên</TableHead>
               <TableHead>Email</TableHead>
               <TableHead>Đăng nhập gần nhất</TableHead>
               <TableHead>Trạng thái</TableHead>
-              <TableHead className="text-right">Thao tác</TableHead>
+              <TableHead>Ngày tạo</TableHead>
+              <ActionsHead />
             </TableRow>
           </TableHeader>
           <TableBody>
-            {adminPage.items.map((a) => {
+            {adminPage.items.map((a, i) => {
               const isMe = me !== null && sameId(a.id, me);
               return (
                 <TableRow key={a.id}>
+                  <SttCell n={adminPage.offset + i + 1} />
                   <TableCell className="font-medium">
                     {a.name} {isMe && <span className="text-xs text-muted-foreground">(bạn)</span>}
                   </TableCell>
                   <TableCell>{a.email}</TableCell>
-                  <TableCell className="text-xs">
-                    {formatDateTime(a.lastLoginAt, "Chưa đăng nhập")}
-                    {a.mustChangePassword && <div className="text-amber-700">Chưa đổi mật khẩu tạm</div>}
+                  <TableCell className="tabular-nums">
+                    {a.lastLoginAt ? formatDateTime(a.lastLoginAt) : <EmptyValue>Chưa đăng nhập</EmptyValue>}
+                    {a.mustChangePassword && <div className="text-xs text-amber-700">Chưa đổi mật khẩu tạm</div>}
                   </TableCell>
                   <TableCell>
                     <StatusBadge map={ACCOUNT_STATUS} value={a.status} />
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="tabular-nums">{formatDateTime(a.createdAt)}</TableCell>
+                  <ActionsCell>
                     {!isMe && (
-                      <div className="flex justify-end gap-1">
+                      <>
                         <ResetPasswordButton label={a.email} action={resetAdminPasswordAction.bind(null, a.id)} />
                         <ConfirmAction
                           action={setAdminStatusAction.bind(null, a.id, a.status === "active" ? "locked" : "active")}
@@ -86,14 +93,14 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
                           confirmLabel={a.status === "active" ? "Khóa" : "Mở khóa"}
                           destructive={a.status === "active"}
                           trigger={
-                            <Button size="icon-sm" variant="ghost" aria-label={a.status === "active" ? "Khóa" : "Mở khóa"}>
+                            <ActionIcon label={a.status === "active" ? "Khóa" : "Mở khóa"} tone={a.status === "active" ? "danger" : "success"}>
                               {a.status === "active" ? <Lock className="size-4" /> : <Unlock className="size-4" />}
-                            </Button>
+                            </ActionIcon>
                           }
                         />
-                      </div>
+                      </>
                     )}
-                  </TableCell>
+                  </ActionsCell>
                 </TableRow>
               );
             })}
@@ -105,6 +112,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
         <h2 className="mb-2 font-semibold text-foreground">Thông số hệ thống</h2>
         <ul className="list-inside list-disc space-y-1">
           <li>Thời gian ân hạn khi lưu/nộp sát giờ: {Number(process.env.EXAM_GRACE_SECONDS ?? 10)} giây</li>
+          <li>Mật khẩu mặc định khi tạo tài khoản: {DEFAULT_PASSWORD} (bắt buộc đổi ở lần đăng nhập đầu); mật khẩu mới tối thiểu {PASSWORD_MIN_LENGTH} ký tự</li>
           <li>Khóa đăng nhập 15 phút sau 5 lần nhập sai mật khẩu</li>
           <li>Phiên đăng nhập hết hạn sau 12 giờ</li>
           <li>Múi giờ hiển thị: Asia/Ho_Chi_Minh (UTC+7)</li>

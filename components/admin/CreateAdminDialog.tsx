@@ -61,7 +61,7 @@ export function CreateAdminDialog() {
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Thêm quản trị viên</DialogTitle>
-          <DialogDescription>Quản trị viên có toàn quyền nghiệp vụ. Mật khẩu tạm được sinh tự động.</DialogDescription>
+          <DialogDescription>Quản trị viên có toàn quyền nghiệp vụ. Mật khẩu mặc định 123456, phải đổi ở lần đăng nhập đầu.</DialogDescription>
         </DialogHeader>
         {created ? (
           <CredentialNotice email={created.email} password={created.password} />

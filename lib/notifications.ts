@@ -6,7 +6,6 @@ import { isGuid, normId } from "@/lib/ids";
 import { canJoinSession } from "@/lib/session-status";
 
 export type NotificationType =
-  | "course"
   | "session"
   | "session_cancel"
   | "exam"
@@ -84,8 +83,8 @@ export async function notifySafely(fn: () => Promise<unknown>) {
   }
 }
 
-export async function courseDealerIds(courseId: string) {
-  const rows = await prisma.courseEnrollment.findMany({ where: { courseId }, select: { dealerId: true } });
+export async function sessionDealerIds(sessionId: string) {
+  const rows = await prisma.sessionAssignment.findMany({ where: { sessionId }, select: { dealerId: true } });
   return rows.map((r) => r.dealerId);
 }
 
@@ -105,7 +104,7 @@ async function dealerReminders(userId: string, dealerId: string) {
       status: "scheduled",
       startsAt: { lte: soon },
       endsAt: { gte: now },
-      course: { status: "published", enrollments: { some: { dealerId } } },
+      assignments: { some: { dealerId } },
       attendances: { none: { dealerId } },
     },
     select: { id: true, title: true, startsAt: true, endsAt: true, status: true },
@@ -153,15 +152,15 @@ async function adminReminders(userId: string) {
   const now = new Date();
   const soon = new Date(now.getTime() + REMINDER_SESSION_MINUTES * 60_000);
   const sessions = await prisma.trainingSession.findMany({
-    where: { status: "scheduled", startsAt: { lte: soon }, endsAt: { gte: now }, course: { status: "published" } },
-    select: { id: true, title: true, startsAt: true, endsAt: true, course: { select: { title: true } } },
+    where: { status: "scheduled", startsAt: { lte: soon }, endsAt: { gte: now }, assignments: { some: {} } },
+    select: { id: true, title: true, startsAt: true, endsAt: true, _count: { select: { assignments: true } } },
   });
   for (const s of sessions) {
     const live = now >= s.startsAt;
     await notifyUsers([userId], {
       type: "reminder_session",
       title: live ? `Đang diễn ra: ${s.title}` : `Sắp bắt đầu lúc ${formatTime(s.startsAt)}: ${s.title}`,
-      body: `${s.course.title}. Bấm để theo dõi điểm danh.`,
+      body: `${s._count.assignments} đại lý được giao. Bấm để theo dõi điểm danh.`,
       link: `/admin/training-sessions/${s.id}`,
       dedupeKey: `${live ? "admin-session-live" : "admin-session-soon"}:${s.id}`,
     });

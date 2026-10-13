@@ -1,9 +1,13 @@
 "use client";
 
+import { Eye } from "lucide-react";
 import { useState } from "react";
 import { AttemptDrawer } from "@/components/admin/AttemptDrawer";
-import { StatusBadge } from "@/components/common/StatusBadge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { SttCell, SttHead } from "@/components/common/RowNumber";
+import { StatusBadge, ToneBadge } from "@/components/common/StatusBadge";
+import { ActionIcon, ActionsCell, ActionsHead, EmptyValue, SortableHead } from "@/components/common/TableParts";
+import type { SortState } from "@/lib/sort";
+import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table";
 import { formatDateTime, formatDuration } from "@/lib/date-utils";
 import { formatScore } from "@/lib/format";
 import { ATTEMPT_STATUS_LABEL } from "@/lib/labels";
@@ -26,53 +30,67 @@ export interface ReportRowView {
   voidedCount: number;
 }
 
-export function ReportTable({ rows }: { rows: ReportRowView[] }) {
+export function ReportTable({ rows, offset = 0, sort }: { rows: ReportRowView[]; offset?: number; sort: SortState }) {
   const [open, setOpen] = useState<string | null>(null);
   return (
     <>
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Mã</TableHead>
-            <TableHead>Đại lý</TableHead>
-            <TableHead>Khu vực</TableHead>
-            <TableHead>Trạng thái</TableHead>
-            <TableHead>Bắt đầu</TableHead>
-            <TableHead>Thời gian làm</TableHead>
-            <TableHead className="text-right">Điểm</TableHead>
-            <TableHead className="text-right">Kết quả</TableHead>
+            <SttHead />
+            <SortableHead column="code" sort={sort}>Mã</SortableHead>
+            <SortableHead column="name" sort={sort}>Đại lý</SortableHead>
+            <SortableHead column="region" sort={sort}>Khu vực</SortableHead>
+            <SortableHead column="status" sort={sort}>Trạng thái</SortableHead>
+            <SortableHead column="startedAt" sort={sort} firstDir="desc">Bắt đầu</SortableHead>
+            <SortableHead column="duration" sort={sort}>Thời gian làm</SortableHead>
+            <SortableHead column="score" sort={sort} firstDir="desc" align="right">Điểm</SortableHead>
+            <SortableHead column="result" sort={sort} firstDir="desc">Kết quả</SortableHead>
+            <ActionsHead />
           </TableRow>
         </TableHeader>
         <TableBody>
-          {rows.map((r) => (
+          {rows.map((r, i) => (
             <TableRow
               key={r.dealerId}
               onClick={() => r.attemptId && setOpen(r.attemptId)}
               className={cn(r.attemptId && "cursor-pointer")}
               data-testid={`report-row-${r.dealerCode}`}
             >
+              <SttCell n={offset + i + 1} />
               <TableCell className="font-mono text-xs">{r.dealerCode}</TableCell>
               <TableCell className="font-medium">{r.dealerName}</TableCell>
-              <TableCell>{r.region ?? "—"}</TableCell>
+              <TableCell>{r.region ?? <EmptyValue>Chưa phân vùng</EmptyValue>}</TableCell>
               <TableCell>
                 <StatusBadge map={ATTEMPT_STATUS_LABEL} value={r.status} />
                 {r.voidedCount > 0 && <span className="ml-1 text-xs text-muted-foreground">({r.voidedCount} lượt đã hủy)</span>}
               </TableCell>
-              <TableCell className="text-xs">{formatDateTime(r.startedAt)}</TableCell>
-              <TableCell className="text-xs">{r.durationSeconds !== null ? formatDuration(r.durationSeconds) : "—"}</TableCell>
-              <TableCell className="text-right">
+              <TableCell className="tabular-nums">{r.startedAt ? formatDateTime(r.startedAt) : <EmptyValue>Chưa thi</EmptyValue>}</TableCell>
+              <TableCell className="tabular-nums">{r.durationSeconds !== null ? formatDuration(r.durationSeconds) : <EmptyValue>—</EmptyValue>}</TableCell>
+              <TableCell className="text-right tabular-nums">
                 {r.scorePercent !== null ? (
                   <>
                     <b>{formatScore(r.scorePercent)}</b>
                     <span className="text-xs text-muted-foreground"> ({r.correctCount}/{r.totalQuestions})</span>
                   </>
                 ) : (
-                  "—"
+                  <EmptyValue>—</EmptyValue>
                 )}
               </TableCell>
-              <TableCell className="text-right">
-                {r.isPassed === null ? "—" : <span className={r.isPassed ? "font-semibold text-success" : "font-semibold text-red-600"}>{r.isPassed ? "Đạt" : "Không đạt"}</span>}
+              <TableCell>
+                {r.isPassed === null ? (
+                  <EmptyValue>—</EmptyValue>
+                ) : (
+                  <ToneBadge tone={r.isPassed ? "success" : "danger"}>{r.isPassed ? "Đạt" : "Không đạt"}</ToneBadge>
+                )}
               </TableCell>
+              <ActionsCell>
+                {r.attemptId && (
+                  <ActionIcon label="Xem bài làm" tone="edit" onClick={() => setOpen(r.attemptId)}>
+                    <Eye className="size-4" />
+                  </ActionIcon>
+                )}
+              </ActionsCell>
             </TableRow>
           ))}
         </TableBody>

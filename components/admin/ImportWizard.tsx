@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { ToneBadge } from "@/components/common/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { SttCell, SttHead } from "@/components/common/RowNumber";
 import { cn } from "@/lib/utils";
 import { Pagination } from "@/components/common/Pagination";
 import { DEFAULT_PAGE_SIZE, paginate } from "@/lib/pagination";
@@ -19,7 +20,6 @@ interface PreviewRow {
   email: string;
   phone: string;
   region: string;
-  hasTempPassword: boolean;
   status: "valid" | "error";
   errors: { column: string; message: string }[];
 }
@@ -35,18 +35,7 @@ interface Preview {
 interface CommitResult {
   created: number;
   skipped: { row: number; code: string; reason: string }[];
-  credentials: { code: string; email: string; tempPassword: string }[];
-}
-
-function downloadCsv(rows: CommitResult["credentials"]) {
-  const lines = ["Mã đại lý,Email,Mật khẩu tạm", ...rows.map((r) => `${r.code},${r.email},${r.tempPassword}`)];
-  const blob = new Blob([`﻿${lines.join("\r\n")}`], { type: "text/csv;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "mat-khau-tam-dai-ly.csv";
-  a.click();
-  URL.revokeObjectURL(url);
+  defaultPassword: string;
 }
 
 export function ImportWizard() {
@@ -128,6 +117,7 @@ export function ImportWizard() {
         <div className="rounded-2xl border bg-card p-6">
           <p className="text-sm text-muted-foreground">
             Tải file mẫu, điền danh sách đại lý rồi tải lên. Hỗ trợ <b>.xlsx</b> và <b>.csv</b> (UTF-8), tối đa 5 MB / 5.000 dòng.
+            Tài khoản tạo ra có mật khẩu mặc định <b className="font-mono">123456</b>, đại lý phải đổi ở lần đăng nhập đầu.
           </p>
           <Button asChild variant="outline" className="mt-4">
             <a href="/api/admin/dealers/import/template">
@@ -196,7 +186,8 @@ export function ImportWizard() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Dòng</TableHead>
+                  <SttHead />
+                  <TableHead>Dòng trong file</TableHead>
                   <TableHead>Mã</TableHead>
                   <TableHead>Tên đại lý</TableHead>
                   <TableHead>Người dùng</TableHead>
@@ -206,8 +197,9 @@ export function ImportWizard() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {rows.map((r) => (
+                {rows.map((r, i) => (
                   <TableRow key={r.row} className={r.status === "error" ? "bg-red-50/50" : ""}>
+                    <SttCell n={pageData.offset + i + 1} />
                     <TableCell>{r.row}</TableCell>
                     <TableCell className="font-mono text-xs">{r.code}</TableCell>
                     <TableCell>{r.dealerName}</TableCell>
@@ -267,14 +259,11 @@ export function ImportWizard() {
               {result.skipped.length > 0 && <p className="text-sm text-amber-700">{result.skipped.length} dòng bị bỏ qua do trùng dữ liệu.</p>}
             </div>
           </div>
-          {result.credentials.length > 0 && (
-            <div className="rounded-xl border border-amber-200 bg-warning-soft p-4 text-sm">
-              <p className="font-semibold text-amber-800">
-                {result.credentials.length} tài khoản được cấp mật khẩu tạm. Danh sách chỉ hiển thị một lần — hãy tải về và gửi cho đại lý.
+          {result.created > 0 && (
+            <div className="rounded-xl border border-amber-200 bg-warning-soft p-4 text-sm" data-testid="import-default-password">
+              <p className="text-amber-800">
+                Đại lý đăng nhập bằng <b>email</b> và mật khẩu mặc định <b className="font-mono">{result.defaultPassword}</b>, sau đó bắt buộc đổi mật khẩu.
               </p>
-              <Button size="sm" className="mt-3" onClick={() => downloadCsv(result.credentials)}>
-                <Download className="size-4" /> Tải danh sách mật khẩu tạm
-              </Button>
             </div>
           )}
           {result.skipped.length > 0 && (

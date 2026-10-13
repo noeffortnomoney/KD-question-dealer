@@ -1,6 +1,6 @@
 # Kymdan Dealer Training & Examination Portal — Project Brain
 
-Website đào tạo và thi cho đại lý Kymdan: khóa học, tài liệu, lịch Google Meet, ôn tập, thi chính thức 30 câu / 45 phút / 1 lượt, báo cáo. Đúng **2 vai trò**: `admin` (Quản trị viên) và `dealer` (Đại lý). Mục tiêu tải: 1.000 người thi đồng thời.
+Website đào tạo và thi cho đại lý Kymdan: lịch Google Meet (kèm tài liệu), ôn tập, thi chính thức 30 câu / 45 phút / 1 lượt, báo cáo. Đúng **2 vai trò**: `admin` (Quản trị viên) và `dealer` (Đại lý). Mục tiêu tải: 1.000 người thi đồng thời.
 
 Giao tiếp với user bằng **tiếng Việt**.
 
@@ -19,6 +19,7 @@ Giao tiếp với user bằng **tiếng Việt**.
 | `Docs/08-ke-hoach-nghiem-thu.md` | Lộ trình, bộ test bắt buộc, Definition of Done |
 | `Docs/09-cau-hoi-mo-rui-ro.md` | Câu hỏi `CẦN CHỐT` (đang dùng phương án "Đề xuất"), mâu thuẫn, rủi ro |
 | `Docs/10-cong-nghe.md` | Stack, cấu trúc thư mục, pattern auth/guard, Server Action vs Route Handler |
+| `Docs/11-kich-ban-demo.md` | Kịch bản demo cho lãnh đạo non-IT — đổi tên nút/menu/luồng thì cập nhật file này |
 
 ### Quy tắc giữ tài liệu đồng bộ với code
 
@@ -49,7 +50,7 @@ npm run dev:turbo        # dev với Turbopack (biên dịch lần đầu nhanh 
 npm run preview          # build + chạy bản production ở :3001 (thư mục .next-prod, chạy song song được với dev) — ~15–50 ms/trang, dùng để demo/dùng thử
 npm run db:push          # sync schema.prisma -> SQL Server (dev)
 npm run db:generate      # sau khi sửa schema.prisma
-npm run db:seed          # XÓA SẠCH DB rồi tạo dữ liệu demo (admin, 5 đại lý, 40 câu hỏi, 3 kỳ thi, 3 khóa học)
+npm run db:seed          # XÓA SẠCH DB rồi tạo dữ liệu demo (admin, 5 đại lý, 40 câu hỏi, 3 kỳ thi, 4 buổi training có tài liệu)
 npm run db:studio        # :5555
 npm run user:create -- "<tên>" <email> <password>        # tạo quản trị viên
 npm run loadtest:seed -- 1000 <examId>                   # tài khoản loadtest-{n}@example.test
@@ -68,8 +69,8 @@ Tài khoản seed: `admin@kymdan.local` / mật khẩu lấy từ `SEED_ADMIN_PA
 ### Quy tắc kiểm thử
 
 - Test giao diện **chỉ dùng Playwright** (`e2e/*.spec.ts`), đọc kết quả dạng chữ. **Không** dùng Claude in Chrome / computer use / chụp màn hình để Claude xem (tốn token). Cần xem lỗi → đọc `test-results/**/error-context.md`.
-- `npm run test:e2e` chạy `db:seed` trước → mất dữ liệu đang có trong DB dev. Muốn giữ dữ liệu user thì chạy riêng spec không phụ thuộc seed: `npx playwright test e2e/materials.spec.ts e2e/course-visibility.spec.ts`.
-- Spec tạo dữ liệu phải đặt tên bắt đầu bằng `E2E ` hoặc `Khóa test ` và dọn trong `afterAll` bằng `cleanupTestCourses()` (`e2e/db.ts`).
+- `npm run test:e2e` chạy `db:seed` trước → mất dữ liệu đang có trong DB dev. Muốn giữ dữ liệu user thì chạy riêng spec chỉ cần tài khoản seed và tự dọn dữ liệu: `npx playwright test e2e/materials.spec.ts e2e/session-visibility.spec.ts e2e/attendance.spec.ts e2e/meet-join.spec.ts e2e/notifications.spec.ts`.
+- Spec tạo dữ liệu phải đặt tên bắt đầu bằng `E2E ` hoặc `Buổi test ` và dọn trong `afterAll` bằng `cleanupTestSessions()` (`e2e/db.ts`). Tạo buổi training qua UI: `createSessionViaUi()` (`e2e/helpers.ts`); qua DB: `createSessionFixture()`.
 - `next build` ghi đè `.next` của dev server → dừng `npm run dev` trước khi build.
 - Mọi thay đổi ở `lib/exam/*` phải chạy lại `npm test` + `npm run test:e2e` + `loadtest/check-data.sql`.
 
@@ -92,9 +93,9 @@ Tài khoản seed: `admin@kymdan.local` / mật khẩu lấy từ `SEED_ADMIN_PA
 | `lib/audit.ts` · `lib/http.ts` · `lib/ids.ts` | Ghi audit · helper JSON lỗi Route Handler · so sánh ID |
 | `components/exam/` | Phòng thi: câu hỏi, lưới, đồng hồ, chỉ báo lưu, popup nộp bài |
 | `prisma/schema.prisma` | Nguồn chân lý DB |
-| `lib/actions/admin/` | Server Actions quản trị: dealers, questions, exams, courses, attempts (chi tiết + cấp lại lượt), users |
+| `lib/actions/admin/` | Server Actions quản trị: dealers, questions, exams, sessions (lịch training + giao đại lý + tài liệu), attempts (chi tiết + cấp lại lượt), users |
 | `lib/reports.ts` · `lib/admin-stats.ts` | Số liệu báo cáo kỳ thi (dùng chung cho trang và file export) · dashboard admin |
-| `lib/assign.ts` | Giao kỳ thi / khóa học: tất cả, theo khu vực, theo danh sách mã |
+| `lib/assign.ts` | Giao kỳ thi / buổi training: tất cả, theo khu vực, theo danh sách mã |
 | `components/admin/` · `components/common/` | UI quản trị · component dùng chung (ConfirmAction = UI-24, FilterBar, Pagination, StatusBadge…) |
 | `prisma/seed.ts` · `scripts/` | Seed, tạo admin, seed loadtest |
 | `e2e/` | Playwright |
@@ -105,12 +106,12 @@ Tài khoản seed: `admin@kymdan.local` / mật khẩu lấy từ `SEED_ADMIN_PA
 | Đại lý | Admin |
 |---|---|
 | `/dashboard` (UI-02) | `/admin` (UI-09) |
-| `/courses`, `/courses/[id]` (UI-03) | `/admin/dealers` (UI-10/11), `/admin/dealers/import` (UI-12) |
-| `/training-sessions` | `/admin/courses`, `/admin/courses/[id]?tab=info\|materials\|sessions\|dealers` (UI-13/14/15), `/admin/training-sessions`, `/admin/training-sessions/[sessionId]` (điểm danh) |
+| `/training-sessions` (UI-03: lịch + nội dung + tài liệu) | `/admin/dealers` (UI-10/11), `/admin/dealers/import` (UI-12) |
+| | `/admin/training-sessions` (UI-15: danh sách + thêm/sửa/hủy), `/admin/training-sessions/[sessionId]?tab=attendance\|materials` (UI-14: đại lý & điểm danh, tài liệu) |
 | `/practice`, `/practice/[sessionId]` (UI-04) | `/admin/questions`, `/admin/questions/[id]` (UI-16/17), `/admin/questions/import` (UI-28) |
 | `/exams`, `/exams/[examId]` (UI-05), `/exams/[examId]/ranking` (UI-27) | `/admin/exams`, `/admin/exams/[id]?tab=config\|questions\|dealers\|ranking` (UI-18/19/27) |
 | `/attempts/[id]` (UI-06/07), `/attempts/[id]/result` (UI-08) | `/admin/reports` (UI-20/21/22) |
-| `/my-results` | `/admin/audit-logs` (UI-23), `/admin/settings` |
+| `/my-results` | `/admin/audit-logs` (UI-23, **chỉ `admin@kymdan.local`**), `/admin/settings` |
 | `/notifications` (dùng chung) | `/notifications` (dùng chung) |
 
 ## Quy tắc bất biến
@@ -129,7 +130,9 @@ Tài khoản seed: `admin@kymdan.local` / mật khẩu lấy từ `SEED_ADMIN_PA
 - So sánh ID luôn qua `sameId()` (SQL Server trả GUID có thể khác hoa/thường).
 - Không dùng `prisma.$queryRaw` / SQL riêng của SQL Server.
 - Không filter dữ liệu ở client — filter ở query.
-- **Mọi bảng danh sách phải phân trang** bằng `<Pagination>` (`components/common/Pagination.tsx`) + `lib/pagination.ts`: `parsePageSize(sp.size)` (10/20/50/100, mặc định 10), `parsePage(sp.page)`, `clampPage`. Danh sách lấy từ DB lớn → `count` rồi `skip/take`; danh sách đã tính trong bộ nhớ → `paginate()`. Bảng phía client (xem trước import) → `<Pagination onChange>`. Cột STT dùng `offset + i + 1`. Export file không phân trang.
+- **Mọi bảng danh sách phải phân trang** bằng `<Pagination>` (`components/common/Pagination.tsx`) + `lib/pagination.ts`: `parsePageSize(sp.size)` (10/20/50/100, mặc định 10), `parsePage(sp.page)`, `clampPage`. Danh sách lấy từ DB lớn → `count` rồi `skip/take`; danh sách đã tính trong bộ nhớ → `paginate()`. Bảng phía client (xem trước import) → `<Pagination onChange>`. **Cột đầu tiên luôn là STT**: `<SttHead />` + `<SttCell n={offset + i + 1} />` (`components/common/RowNumber.tsx`), số nối tiếp giữa các trang (trang 2 cỡ 10 bắt đầu từ 11); bảng xem trước import giữ thêm cột "Dòng trong file". Export file không phân trang.
+- **Trình bày bảng** (Docs/03 §7.8): cột thao tác dùng `ActionsHead` / `ActionsCell` / `ActionIcon` (tooltip + tone edit/neutral/success/danger) / `RowLink` (tối đa 1 nút chính có chữ), giá trị trống dùng `EmptyValue` — tất cả ở `components/common/TableParts.tsx`. Số căn phải + `tabular-nums`. Cột sắp xếp được: `SortableHead` + `parseSort(sp, KEYS, fallback)` (`lib/sort.ts`) → Prisma `orderBy` (danh sách phân trang ở DB) hoặc `sortRows` (danh sách trong bộ nhớ); `KEYS` là whitelist, không đưa thẳng `sp.sort` vào `orderBy`; FilterBar truyền `hidden={{ sort, dir }}`. Sắp xếp theo điểm phía đại lý phải coi điểm chưa công bố là trống. **Thứ tự mặc định: mới nhất lên đầu** (ngày tạo / ngày giao / thời điểm sự kiện giảm dần; ngoại lệ ở Docs/03 §7.8). Prisma `orderBy` trên SQL Server không được lặp cùng một cột 2 lần (lỗi khi cột sắp xếp trùng cột phụ). Ô 2 dòng có icon: `IconLines`. `RowLink` là Client Component: truyền icon dạng element (`icon={<X className="size-3.5" />}`), **không** truyền component (`icon={X}`) từ Server Component → lỗi server.
+- Audit log chỉ cho `AUDIT_LOG_OWNER_EMAIL` (`lib/roles.ts`, mặc định `admin@kymdan.local`) xem: menu (`navFor(role, canViewAudit)`), middleware (`canAccessPath(role, path, email)`), trang (`requireAuditLogViewer()`). Thêm màn hình/API đọc audit mới phải dùng `requireAuditLogViewer()`.
 - Không import Toaster trực tiếp trong Server Component (đã có trong `components/Providers.tsx`).
 
 ## Luật thi (tóm tắt — chi tiết `Docs/02`)
@@ -148,16 +151,20 @@ scorePercent          = round2(correct / total * 100); isPassed = scorePercent >
 Đề                    = ExamQuestion là "pool"; selectionMode fixed lấy questionCount câu đầu theo sortOrder,
                         random bốc ngẫu nhiên questionCount câu; shuffleOptions trộn lựa chọn
 Ôn tập                = không dùng ExamAttempt; loại câu đang nằm trong kỳ thi official còn mở
-Hiển thị cho đại lý   = khóa học phải published + đại lý được giao (lịch training ẩn theo khóa học);
-                        kỳ thi phải published/closed + được giao. Bản nháp có banner HiddenFromDealersBanner ở trang admin
+Hiển thị cho đại lý   = buổi training: được giao (session_assignments) + chưa bị hủy — không có bản nháp, tạo là giao luôn
+                        (dialog tạo buổi có chọn tất cả / khu vực / mã); tài liệu đính kèm buổi (session_materials), tải file
+                        qua /api/materials/[id]/download kiểm tra được giao. Không còn khóa học (bỏ 2026-10-13).
+                        Kỳ thi phải published/closed + được giao. Bản nháp có banner HiddenFromDealersBanner ở trang admin
+Nhãn kỳ thi (admin)   = examPhase() trong lib/exam-status.ts (Sắp mở / Đang mở / Hết giờ · chưa đóng / Đã đóng…) —
+                        KHÔNG hiển thị thẳng exams.status (status chỉ đổi khi admin bấm Đóng)
 Lịch training         = trạng thái hiển thị tính theo giờ thực: sessionPhase() trong lib/session-status.ts
                         (Sắp diễn ra / Đang diễn ra / Đã diễn ra / Đã hủy) — KHÔNG hiển thị thẳng cột status trong DB.
                         Nút "Tham gia" là <a target=_blank> tới link Meet, chỉ render khi canJoinSession()
                         (mở trước 15 phút → hết giờ); điểm danh gọi joinSessionAction song song, không chặn việc mở Meet
 Thông báo (chuông)    = lib/notifications.ts. Bảng notifications, UNIQUE (userId, dedupeKey) — luôn gửi qua notifyUsers /
-                        notifyDealers / notifyAdmins với dedupeKey ổn định (vd "course:<id>", "exam-open:<id>"); sự kiện lặp
+                        notifyDealers / notifyAdmins với dedupeKey ổn định (vd "session-new:<id>", "exam-open:<id>"); sự kiện lặp
                         được (sửa lịch) thêm Date.now() vào key. Bọc trong notifySafely() để lỗi thông báo không làm hỏng thao tác.
-                        Sự kiện → đại lý: xuất bản/giao khóa học, thêm/sửa/hủy/khôi phục lịch (khóa đã xuất bản), mở/giao kỳ thi,
+                        Sự kiện → đại lý: được giao buổi training mới, sửa/hủy/khôi phục buổi đã được giao, mở/giao kỳ thi,
                         đóng kỳ thi có policy after_exam_ends (kết quả/đáp án), cấp lại lượt.
                         Nhắc việc sinh khi GET /api/notifications (ensureReminders): đại lý — buổi training ≤ 60 phút/đang diễn ra
                         mà chưa bấm tham gia, kỳ thi đóng trong 24h chưa làm, bài đang làm dở; admin — buổi sắp/đang diễn ra
@@ -178,7 +185,7 @@ Xếp hạng              = lib/ranking.ts (rankRows thuần, có test). Chỉ l
 |---|---|
 | `User.role` | `admin` · `dealer` |
 | `User.status`, `Dealer.status` | `active` · `locked` |
-| `Course.status`, `Question.status` | `draft` · `published` · `archived` |
+| `Question.status` | `draft` · `published` · `archived` |
 | `Exam.status` | `draft` · `published` · `closed` · `archived` |
 | `Exam.selectionMode` | `fixed` · `random` |
 | `Exam.showScorePolicy`, `showAnswerPolicy` | `after_submit` · `after_exam_ends` · `never` |
@@ -229,3 +236,13 @@ Sửa `schema.prisma` khi đang chạy `npm run dev` / `npm run preview`: `prism
 | 2026-10-12 | Code MVP: luồng thi, ôn tập, khóa học/Meet, toàn bộ trang quản trị, import/export, báo cáo, cấp lại lượt, audit, dashboard | Yêu cầu của user |
 | 2026-10-12 | Lưu đáp án khóa dòng attempt (`lastActivityAt`) trong transaction | Tuần tự hóa lưu và nộp bài, không cần bắt `P2002` trong transaction (Postgres sẽ hủy transaction) |
 | 2026-10-12 | Test giao diện bằng Playwright chạy có giao diện | User yêu cầu, không tốn token |
+| 2026-10-13 | Mật khẩu mặc định `123456` cho tài khoản mới; đổi/cấp lại tối thiểu 6 ký tự, không bắt buộc chữ (`lib/password-rules.ts`, dùng được ở client) | Quyết định của user — Docs/06 §1, Docs/09 |
+| 2026-10-13 | Bỏ cột "Mật khẩu tạm" khỏi file import đại lý (file cũ còn cột đó vẫn đọc được, bị bỏ qua) | Mọi tài khoản mới đã dùng `123456` |
+| 2026-10-13 | Cột STT đầu tiên cho mọi bảng (`components/common/RowNumber.tsx`) | User yêu cầu |
+| 2026-10-13 | Audit log chỉ `admin@kymdan.local` xem được; quản trị viên khác không có menu/trang | Quyết định của user — Docs/06 §5, Docs/03 UI-23 |
+| 2026-10-13 | Nhãn trạng thái kỳ thi phía admin tính theo giờ thực (`examPhase`), kỳ thi quá giờ chưa đóng hiện "Hết giờ · chưa đóng" + dải nhắc đóng | User báo "TEST ĐẠI LÝ KYMDAN" quá giờ vẫn hiện "Đang mở" |
+| 2026-10-13 | Mọi bảng mặc định mới nhất lên đầu; thêm cột "Ngày tạo" (Đại lý, Kỳ thi, Câu hỏi, Lịch training, Quản trị viên), "Ngày giao" (Phân công) | User yêu cầu |
+| 2026-10-13 | Sắp xếp theo cột (`SortableHead`, `lib/sort.ts`) cho các bảng nghiệp vụ; Lịch thi / Cấu hình ở Quản lý kỳ thi trình bày 2 dòng có icon (`IconLines`) | User gửi mẫu |
+| 2026-10-13 | Thanh phân trang luôn hiện `|< < 1 2 3 > >|` (kể cả 1 trang) + ô "Chuyển đến trang" | User gửi mẫu |
+| 2026-10-13 | Chuẩn trình bày bảng: header nền xám, badge trạng thái chấm màu, cột Thao tác với nút chính + icon có tooltip màu theo ý nghĩa, `EmptyValue` (Docs/03 §7.8) | User gửi mẫu bảng, yêu cầu phân tích và tối ưu |
+| 2026-10-13 | Bỏ "Khóa đào tạo": xóa `courses`, `course_enrollments`, `course_materials`, `material_progress`. Buổi training đứng riêng, giao đại lý như kỳ thi (`session_assignments`), tài liệu gắn vào buổi (`session_materials`), thêm `description`. DB dev đã chuyển dữ liệu cũ sang (đại lý được giao khóa → được giao từng buổi của khóa; tài liệu link → mọi buổi, file → buổi sớm nhất) | Quyết định của user: công ty không đào tạo theo khóa, chỉ họp Meet với đại lý → ôn tập → thi |

@@ -5,6 +5,7 @@ import { StatCard } from "@/components/common/StatCard";
 import { ToneBadge } from "@/components/common/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { SttCell, SttHead } from "@/components/common/RowNumber";
 import { formatDateTime, formatDuration } from "@/lib/date-utils";
 import { formatPercent, formatScore } from "@/lib/format";
 import { getExamRanking } from "@/lib/ranking";
@@ -31,7 +32,7 @@ export async function ExamRankingTab({
   if (!data) return null;
   const { stats, regions, ended, exam } = data;
   const size = parsePageSize(sizeParam);
-  const { items: rows, page, total } = paginate(data.rows, parsePage(pageParam), size);
+  const { items: rows, page, total, offset } = paginate(data.rows, parsePage(pageParam), size);
   const exportQs = new URLSearchParams(Object.entries({ region, q }).filter(([, v]) => v) as [string, string][]).toString();
 
   return (
@@ -78,6 +79,7 @@ export async function ExamRankingTab({
           <Table>
             <TableHeader>
               <TableRow>
+                <SttHead />
                 <TableHead className="w-20">Hạng</TableHead>
                 <TableHead>Mã</TableHead>
                 <TableHead>Đại lý</TableHead>
@@ -90,8 +92,9 @@ export async function ExamRankingTab({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {rows.map((r) => (
+              {rows.map((r, i) => (
                 <TableRow key={r.attemptId} data-testid={`rank-${r.code}`}>
+                  <SttCell n={offset + i + 1} />
                   <TableCell>
                     <span className="flex items-center gap-1.5 font-bold tabular-nums">
                       {r.rank <= 3 && <Medal className={cn("size-4", MEDAL[r.rank - 1])} />}

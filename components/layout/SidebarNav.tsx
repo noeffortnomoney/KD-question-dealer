@@ -6,11 +6,19 @@ import { isActive, navFor } from "@/components/layout/nav";
 import type { UserRole } from "@/lib/roles";
 import { cn } from "@/lib/utils";
 
-export function SidebarNav({ role, onNavigate }: { role: UserRole; onNavigate?: () => void }) {
+export function SidebarNav({
+  role,
+  canViewAudit = false,
+  onNavigate,
+}: {
+  role: UserRole;
+  canViewAudit?: boolean;
+  onNavigate?: () => void;
+}) {
   const pathname = usePathname();
   return (
     <nav className="flex flex-col gap-1">
-      {navFor(role).map((item) => {
+      {navFor(role, canViewAudit).map((item) => {
         const active = isActive(item, pathname);
         const Icon = item.icon;
         return (

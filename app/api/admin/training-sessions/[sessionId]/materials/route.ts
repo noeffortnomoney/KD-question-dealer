@@ -19,14 +19,14 @@ const ALLOWED: Record<string, string> = {
   mp4: "video/mp4",
 };
 
-export async function POST(request: Request, { params }: { params: Promise<{ courseId: string }> }) {
+export async function POST(request: Request, { params }: { params: Promise<{ sessionId: string }> }) {
   const guard = await requireAdmin();
   if ("error" in guard) return guardResponse(guard);
-  const { courseId } = await params;
-  if (!isGuid(courseId)) return apiError(404, "NOT_FOUND", "Không tìm thấy khóa học");
+  const { sessionId } = await params;
+  if (!isGuid(sessionId)) return apiError(404, "NOT_FOUND", "Không tìm thấy buổi training");
 
-  const course = await prisma.course.findUnique({ where: { id: courseId }, select: { id: true } });
-  if (!course) return apiError(404, "NOT_FOUND", "Không tìm thấy khóa học");
+  const session = await prisma.trainingSession.findUnique({ where: { id: sessionId }, select: { id: true } });
+  if (!session) return apiError(404, "NOT_FOUND", "Không tìm thấy buổi training");
 
   let form: FormData;
   try {
@@ -36,7 +36,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ cou
   }
   const file = form.get("file");
   const title = String(form.get("title") ?? "").trim();
-  const isRequired = form.get("isRequired") === "true";
   if (!(file instanceof File)) return apiError(422, "VALIDATION_FAILED", "Chưa chọn file");
   if (!title || title.length > 250) return apiError(422, "VALIDATION_FAILED", "Tiêu đề bắt buộc, tối đa 250 ký tự");
   if (file.size > MAX_BYTES) return apiError(413, "PAYLOAD_TOO_LARGE", "File vượt quá 25 MB");
@@ -46,31 +45,30 @@ export async function POST(request: Request, { params }: { params: Promise<{ cou
   if (!contentType) return apiError(415, "UNSUPPORTED_FILE", "Định dạng không được hỗ trợ");
 
   const storageKey = await saveFile(Buffer.from(await file.arrayBuffer()), ext);
-  const last = await prisma.courseMaterial.findFirst({
-    where: { courseId },
+  const last = await prisma.sessionMaterial.findFirst({
+    where: { sessionId },
     orderBy: { sortOrder: "desc" },
     select: { sortOrder: true },
   });
-  const material = await prisma.courseMaterial.create({
+  const material = await prisma.sessionMaterial.create({
     data: {
-      courseId,
+      sessionId,
       title,
       kind: "file",
       storageKey,
       fileName: file.name.slice(0, 260),
       contentType,
-      isRequired,
       sortOrder: (last?.sortOrder ?? 0) + 1,
     },
     select: { id: true },
   });
   await writeAudit({
     actorUserId: guard.userId,
-    action: "Course.MaterialUpload",
-    entityType: "Course",
-    entityId: courseId,
+    action: "Session.MaterialUpload",
+    entityType: "TrainingSession",
+    entityId: sessionId,
     details: { materialId: material.id, title, fileName: file.name },
   });
-  revalidatePath(`/admin/courses/${courseId}`);
+  revalidatePath(`/admin/training-sessions/${sessionId}`);
   return NextResponse.json({ materialId: material.id }, { status: 201 });
 }

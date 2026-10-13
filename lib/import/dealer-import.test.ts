@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { mapRows, parseCsv, safeCell, validateRows } from "@/lib/import/dealer-import";
 
-const HEADER = "Mã đại lý,Tên đại lý,Họ tên người dùng,Email đăng nhập,Số điện thoại,Khu vực,Mật khẩu tạm";
+const HEADER = "Mã đại lý,Tên đại lý,Họ tên người dùng,Email đăng nhập,Số điện thoại,Khu vực";
 
 describe("parseCsv", () => {
   it("đọc BOM, dấu ngoặc kép và dấu phẩy trong ô", () => {
-    const rows = parseCsv(`﻿${HEADER}\r\nHCM001,"Đại lý ""ABC"", Q1",Nguyễn Văn A,a@x.vn,,HCM,\r\n`);
+    const rows = parseCsv(`﻿${HEADER}\r\nHCM001,"Đại lý ""ABC"", Q1",Nguyễn Văn A,a@x.vn,,HCM\r\n`);
     expect(rows).toHaveLength(2);
     expect(rows[1][1]).toBe('Đại lý "ABC", Q1');
   });
@@ -26,6 +26,15 @@ describe("mapRows", () => {
     expect(rows[0]).toMatchObject({ rowNumber: 2, data: { code: "HCM001", email: "a@x.vn", region: "" } });
   });
 
+  it("file cũ còn cột Mật khẩu tạm vẫn đọc được, cột đó bị bỏ qua", () => {
+    const { rows, missing } = mapRows([
+      [...HEADER.split(","), "Mật khẩu tạm"],
+      ["HCM009", "ABC", "Nguyễn A", "a@x.vn", "", "HCM", "abc"],
+    ]);
+    expect(missing).toEqual([]);
+    expect(rows[0].data).toEqual({ code: "HCM009", dealerName: "ABC", userName: "Nguyễn A", email: "a@x.vn", phone: "", region: "HCM" });
+  });
+
   it("báo thiếu cột bắt buộc", () => {
     expect(mapRows([["Mã đại lý"]]).missing).toContain("Email đăng nhập");
   });
@@ -35,12 +44,12 @@ describe("validateRows", () => {
   const table = parseCsv(
     [
       HEADER,
-      "HCM001,ABC,Nguyễn A,a@x.vn,0909,HCM,",
-      "HCM001,DEF,Trần B,b@x.vn,,HN,",
-      "HCM002,GHI,Lê C,a@x.vn,,,",
-      ",JKL,Phạm D,not-an-email,abc,,",
-      "HCM003,MNO,Võ E,exist@x.vn,,,short",
-      "OLD01,PQR,Đỗ F,f@x.vn,,,",
+      "HCM001,ABC,Nguyễn A,a@x.vn,0909,HCM",
+      "HCM001,DEF,Trần B,b@x.vn,,HN",
+      "HCM002,GHI,Lê C,a@x.vn,,",
+      ",JKL,Phạm D,not-an-email,abc,",
+      "HCM003,MNO,Võ E,exist@x.vn,,",
+      "OLD01,PQR,Đỗ F,f@x.vn,,",
     ].join("\n")
   );
   const { rows } = mapRows(table);
@@ -54,9 +63,7 @@ describe("validateRows", () => {
     expect(codes(5)).toEqual(expect.arrayContaining(["REQUIRED", "INVALID_FORMAT"]));
     expect(result.find((r) => r.rowNumber === 5)!.errors).toHaveLength(3);
   });
-  it("email đã tồn tại và mật khẩu tạm yếu", () => {
-    expect(codes(6)).toEqual(expect.arrayContaining(["ALREADY_EXISTS", "INVALID_FORMAT"]));
-  });
+  it("email đã tồn tại", () => expect(codes(6)).toEqual(["ALREADY_EXISTS"]));
   it("mã đã tồn tại", () => expect(codes(7)).toContain("ALREADY_EXISTS"));
 });
 

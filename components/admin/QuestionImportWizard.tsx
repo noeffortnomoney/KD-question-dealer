@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { ToneBadge } from "@/components/common/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { SttCell, SttHead } from "@/components/common/RowNumber";
 import { cn } from "@/lib/utils";
 import { Pagination } from "@/components/common/Pagination";
 import { DEFAULT_PAGE_SIZE, paginate } from "@/lib/pagination";
@@ -197,7 +198,8 @@ export function QuestionImportWizard() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-14">Dòng</TableHead>
+                  <SttHead />
+                  <TableHead className="w-20">Dòng trong file</TableHead>
                   <TableHead>Chủ đề</TableHead>
                   <TableHead className="w-[40%]">Câu hỏi & lựa chọn</TableHead>
                   <TableHead>Đúng</TableHead>
@@ -205,8 +207,9 @@ export function QuestionImportWizard() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {rows.map((r) => (
+                {rows.map((r, i) => (
                   <TableRow key={r.row} className={r.errors.length ? "bg-red-50/50" : ""} data-testid={`qrow-${r.row}`}>
+                    <SttCell n={pageData.offset + i + 1} />
                     <TableCell>{r.row}</TableCell>
                     <TableCell className="whitespace-normal">
                       {r.category}

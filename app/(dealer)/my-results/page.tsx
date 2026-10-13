@@ -5,6 +5,9 @@ import { PageHeader } from "@/components/common/PageHeader";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { SttCell, SttHead } from "@/components/common/RowNumber";
+import { SortableHead } from "@/components/common/TableParts";
+import { parseSort, sortRows } from "@/lib/sort";
 import { requireDealer } from "@/lib/auth-guard";
 import { formatDateTime } from "@/lib/date-utils";
 import { visibility } from "@/lib/exam/policy";
@@ -17,9 +20,16 @@ import { paginate, parsePage, parsePageSize } from "@/lib/pagination";
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Kết quả của tôi — Kymdan" };
 
-export default async function MyResultsPage({ searchParams }: { searchParams: Promise<{ page?: string; size?: string }> }) {
+const SORT_KEYS = ["startedAt", "exam", "score"] as const;
+
+export default async function MyResultsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string; size?: string; sort?: string; dir?: string }>;
+}) {
   const sp = await searchParams;
   const size = parsePageSize(sp.size);
+  const sort = parseSort(sp, SORT_KEYS, { key: "startedAt", dir: "desc" });
   const g = await requireDealer();
   if ("error" in g) redirect("/login");
   const now = new Date();
@@ -38,7 +48,14 @@ export default async function MyResultsPage({ searchParams }: { searchParams: Pr
       exam: { select: { title: true, status: true, startsAt: true, endsAt: true, showScorePolicy: true } },
     },
   });
-  const attemptPage = paginate(allAttempts, parsePage(sp.page), size);
+  const scoreVisible = (a: (typeof allAttempts)[number]) =>
+    (a.status === "Submitted" || a.status === "Expired") && visibility(a.exam.showScorePolicy, a.exam, now).visible;
+  const sorted = sortRows(
+    allAttempts,
+    (a) => ({ startedAt: a.startedAt, exam: a.exam.title, score: scoreVisible(a) ? a.scorePercent : null })[sort.key],
+    sort.dir
+  );
+  const attemptPage = paginate(sorted, parsePage(sp.page), size);
 
   return (
     <div className="mx-auto max-w-5xl">
@@ -50,20 +67,22 @@ export default async function MyResultsPage({ searchParams }: { searchParams: Pr
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Kỳ thi</TableHead>
-                <TableHead>Bắt đầu</TableHead>
+                <SttHead />
+                <SortableHead column="exam" sort={sort}>Kỳ thi</SortableHead>
+                <SortableHead column="startedAt" sort={sort} firstDir="desc">Bắt đầu</SortableHead>
                 <TableHead>Trạng thái</TableHead>
-                <TableHead className="text-right">Điểm</TableHead>
+                <SortableHead column="score" sort={sort} firstDir="desc" align="right">Điểm</SortableHead>
                 <TableHead className="text-right">Kết quả</TableHead>
                 <TableHead />
               </TableRow>
             </TableHeader>
             <TableBody>
-              {attemptPage.items.map((a) => {
+              {attemptPage.items.map((a, i) => {
                 const graded = a.status === "Submitted" || a.status === "Expired";
-                const show = graded && visibility(a.exam.showScorePolicy, a.exam, now).visible;
+                const show = scoreVisible(a);
                 return (
                   <TableRow key={a.id}>
+                    <SttCell n={attemptPage.offset + i + 1} />
                     <TableCell className="font-medium">
                       {a.exam.title}
                       {a.attemptNo > 1 && <span className="ml-1 text-xs text-muted-foreground">(lượt {a.attemptNo})</span>}

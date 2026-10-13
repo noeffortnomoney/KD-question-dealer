@@ -1,6 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 
-export const TEST_COURSE_PREFIXES = ["E2E ", "Khóa test "];
+export const TEST_SESSION_PREFIXES = ["E2E ", "Buổi test "];
 
 export async function withDb<T>(fn: (prisma: PrismaClient) => Promise<T>): Promise<T> {
   const prisma = new PrismaClient();
@@ -11,11 +11,11 @@ export async function withDb<T>(fn: (prisma: PrismaClient) => Promise<T>): Promi
   }
 }
 
-export async function cleanupTestCourses() {
+export async function cleanupTestSessions() {
   return withDb(async (prisma) => {
     await prisma.notification.deleteMany({ where: { OR: [{ title: { contains: "E2E " } }, { body: { contains: "E2E " } }] } });
-    const removed = await prisma.course.deleteMany({
-      where: { OR: TEST_COURSE_PREFIXES.map((p) => ({ title: { startsWith: p } })) },
+    const removed = await prisma.trainingSession.deleteMany({
+      where: { OR: TEST_SESSION_PREFIXES.map((p) => ({ title: { startsWith: p } })) },
     });
     return removed.count;
   });
@@ -35,6 +35,42 @@ export async function createTestDealers(prefix: string, count: number) {
 
 export async function cleanupTestDealers(prefix: string) {
   return withDb((prisma) => prisma.dealer.deleteMany({ where: { code: { startsWith: prefix }, users: { none: {} } } }));
+}
+
+export async function cleanupTestDealerAccounts(prefix: string) {
+  return withDb(async (prisma) => {
+    const dealers = await prisma.dealer.findMany({ where: { code: { startsWith: prefix } }, select: { id: true } });
+    const dealerIds = dealers.map((d) => d.id);
+    if (dealerIds.length === 0) return 0;
+    const users = await prisma.user.findMany({ where: { dealerId: { in: dealerIds } }, select: { id: true } });
+    const userIds = users.map((u) => u.id);
+    await prisma.auditLog.deleteMany({ where: { actorUserId: { in: userIds } } });
+    await prisma.user.deleteMany({ where: { id: { in: userIds } } });
+    const removed = await prisma.dealer.deleteMany({ where: { id: { in: dealerIds } } });
+    return removed.count;
+  });
+}
+
+export async function createTestAdmin(email: string, password: string) {
+  const { hashPassword } = await import("../lib/password");
+  const passwordHash = await hashPassword(password);
+  return withDb((prisma) =>
+    prisma.user.upsert({
+      where: { email },
+      create: { email, name: "E2E quản trị viên phụ", role: "admin", passwordHash },
+      update: { passwordHash, status: "active", mustChangePassword: false, failedLoginCount: 0, lockedUntil: null },
+      select: { id: true },
+    })
+  );
+}
+
+export async function deleteTestUser(email: string) {
+  return withDb(async (prisma) => {
+    const user = await prisma.user.findUnique({ where: { email }, select: { id: true } });
+    if (!user) return;
+    await prisma.auditLog.deleteMany({ where: { actorUserId: user.id } });
+    await prisma.user.delete({ where: { id: user.id } });
+  });
 }
 
 export async function cleanupTestQuestions() {
@@ -110,30 +146,27 @@ export async function createRankingFixture(
 }
 
 export async function createSessionFixture(opts: {
-  title: string;
   dealerEmails: string[];
-  status?: "draft" | "published";
-  sessions: { title: string; startOffsetMin: number; durationMin: number; meetUrl: string }[];
+  sessions: { title: string; startOffsetMin: number; durationMin: number; meetUrl: string; materials?: { title: string; url: string }[] }[];
 }) {
   return withDb(async (prisma) => {
     const users = await prisma.user.findMany({ where: { email: { in: opts.dealerEmails } }, select: { dealerId: true } });
     const now = Date.now();
-    return prisma.course.create({
-      data: {
-        title: opts.title,
-        status: opts.status ?? "published",
-        publishedAt: new Date(),
-        enrollments: { create: users.map((u) => ({ dealerId: u.dealerId! })) },
-        sessions: {
-          create: opts.sessions.map((s) => ({
-            title: s.title,
-            startsAt: new Date(now + s.startOffsetMin * 60_000),
-            endsAt: new Date(now + (s.startOffsetMin + s.durationMin) * 60_000),
-            meetUrl: s.meetUrl,
-          })),
+    const ids: string[] = [];
+    for (const s of opts.sessions) {
+      const created = await prisma.trainingSession.create({
+        data: {
+          title: s.title,
+          startsAt: new Date(now + s.startOffsetMin * 60_000),
+          endsAt: new Date(now + (s.startOffsetMin + s.durationMin) * 60_000),
+          meetUrl: s.meetUrl,
+          assignments: { create: users.map((u) => ({ dealerId: u.dealerId! })) },
+          materials: { create: (s.materials ?? []).map((m, i) => ({ ...m, kind: "link", sortOrder: i + 1 })) },
         },
-      },
-      select: { id: true },
-    });
+        select: { id: true },
+      });
+      ids.push(created.id);
+    }
+    return ids;
   });
 }

@@ -17,13 +17,12 @@ model Dealer {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  users            User[]
-  enrollments      CourseEnrollment[]
-  attendances      Attendance[]
-  examAssignments  ExamAssignment[]
-  attempts         ExamAttempt[]
-  materialProgress MaterialProgress[]
-  practiceSessions PracticeSession[]
+  users              User[]
+  sessionAssignments SessionAssignment[]
+  attendances        Attendance[]
+  examAssignments    ExamAssignment[]
+  attempts           ExamAttempt[]
+  practiceSessions   PracticeSession[]
 
   @@index([region])
   @@map("dealers")
@@ -74,27 +73,43 @@ model Notification {
   @@map("notifications")
 }
 
-model Course {
-  id          String    @id @default(dbgenerated("NEWSEQUENTIALID()")) @db.UniqueIdentifier
-  title       String    @db.NVarChar(250)
-  description String?   @db.NVarChar(Max)
-  status      String    @default("draft") @db.NVarChar(20)
-  publishedAt DateTime? @map("published_at")
-  createdById String?   @map("created_by_id") @db.UniqueIdentifier
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
+model TrainingSession {
+  id            String   @id @default(dbgenerated("NEWSEQUENTIALID()")) @db.UniqueIdentifier
+  title         String   @db.NVarChar(250)
+  description   String?  @db.NVarChar(Max)
+  presenterName String?  @map("presenter_name") @db.NVarChar(200)
+  startsAt      DateTime @map("starts_at")
+  endsAt        DateTime @map("ends_at")
+  meetUrl       String   @map("meet_url") @db.NVarChar(1000)
+  status        String   @default("scheduled") @db.NVarChar(20)
+  createdById   String?  @map("created_by_id") @db.UniqueIdentifier
+  createdAt     DateTime @default(now()) @map("created_at")
 
-  materials   CourseMaterial[]
-  sessions    TrainingSession[]
-  enrollments CourseEnrollment[]
+  assignments SessionAssignment[]
+  materials   SessionMaterial[]
+  attendances Attendance[]
 
-  @@index([status])
-  @@map("courses")
+  @@index([startsAt])
+  @@map("training_sessions")
 }
 
-model CourseMaterial {
+model SessionAssignment {
+  id         String   @id @default(dbgenerated("NEWSEQUENTIALID()")) @db.UniqueIdentifier
+  sessionId  String   @map("session_id") @db.UniqueIdentifier
+  dealerId   String   @map("dealer_id") @db.UniqueIdentifier
+  assignedAt DateTime @default(now()) @map("assigned_at")
+
+  session TrainingSession @relation(fields: [sessionId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  dealer  Dealer          @relation(fields: [dealerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([sessionId, dealerId])
+  @@index([dealerId])
+  @@map("session_assignments")
+}
+
+model SessionMaterial {
   id          String   @id @default(dbgenerated("NEWSEQUENTIALID()")) @db.UniqueIdentifier
-  courseId    String   @map("course_id") @db.UniqueIdentifier
+  sessionId   String   @map("session_id") @db.UniqueIdentifier
   title       String   @db.NVarChar(250)
   kind        String   @default("link") @db.NVarChar(20)
   url         String?  @db.NVarChar(1000)
@@ -102,49 +117,12 @@ model CourseMaterial {
   fileName    String?  @map("file_name") @db.NVarChar(260)
   contentType String?  @map("content_type") @db.NVarChar(120)
   sortOrder   Int      @default(0) @map("sort_order")
-  isRequired  Boolean  @default(false) @map("is_required")
   createdAt   DateTime @default(now()) @map("created_at")
 
-  course   Course             @relation(fields: [courseId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  progress MaterialProgress[]
+  session TrainingSession @relation(fields: [sessionId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
-  @@index([courseId, sortOrder])
-  @@map("course_materials")
-}
-
-model TrainingSession {
-  id            String   @id @default(dbgenerated("NEWSEQUENTIALID()")) @db.UniqueIdentifier
-  courseId      String   @map("course_id") @db.UniqueIdentifier
-  title         String   @db.NVarChar(250)
-  presenterName String?  @map("presenter_name") @db.NVarChar(200)
-  startsAt      DateTime @map("starts_at")
-  endsAt        DateTime @map("ends_at")
-  meetUrl       String   @map("meet_url") @db.NVarChar(1000)
-  status        String   @default("scheduled") @db.NVarChar(20)
-  createdAt     DateTime @default(now()) @map("created_at")
-
-  course      Course       @relation(fields: [courseId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  attendances Attendance[]
-
-  @@index([startsAt])
-  @@index([courseId])
-  @@map("training_sessions")
-}
-
-model CourseEnrollment {
-  id          String    @id @default(dbgenerated("NEWSEQUENTIALID()")) @db.UniqueIdentifier
-  courseId    String    @map("course_id") @db.UniqueIdentifier
-  dealerId    String    @map("dealer_id") @db.UniqueIdentifier
-  status      String    @default("enrolled") @db.NVarChar(20)
-  enrolledAt  DateTime  @default(now()) @map("enrolled_at")
-  completedAt DateTime? @map("completed_at")
-
-  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  dealer Dealer @relation(fields: [dealerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-
-  @@unique([courseId, dealerId])
-  @@index([dealerId])
-  @@map("course_enrollments")
+  @@index([sessionId, sortOrder])
+  @@map("session_materials")
 }
 
 model Attendance {
@@ -159,20 +137,6 @@ model Attendance {
 
   @@unique([sessionId, dealerId])
   @@map("attendances")
-}
-
-model MaterialProgress {
-  materialId    String    @map("material_id") @db.UniqueIdentifier
-  dealerId      String    @map("dealer_id") @db.UniqueIdentifier
-  firstViewedAt DateTime  @default(now()) @map("first_viewed_at")
-  completedAt   DateTime? @map("completed_at")
-
-  material CourseMaterial @relation(fields: [materialId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  dealer   Dealer         @relation(fields: [dealerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-
-  @@id([materialId, dealerId])
-  @@index([dealerId])
-  @@map("material_progress")
 }
 
 model QuestionCategory {

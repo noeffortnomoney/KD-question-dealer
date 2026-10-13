@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { isGuid, normId } from "@/lib/ids";
 import { round2 } from "@/lib/exam/grading";
 import { ATTEMPT_STATUS } from "@/lib/exam/types";
+import { sortRows, type SortState } from "@/lib/sort";
 
 export type ReportStatus = "NotStarted" | "InProgress" | "Submitted" | "Expired";
 
@@ -61,6 +62,27 @@ export interface ExamReport {
     avgScore: number;
   };
   regions: string[];
+}
+
+export const REPORT_SORT_KEYS = ["code", "name", "region", "status", "startedAt", "duration", "score", "result"] as const;
+export type ReportSortKey = (typeof REPORT_SORT_KEYS)[number];
+export const REPORT_DEFAULT_SORT: SortState<ReportSortKey> = { key: "startedAt", dir: "desc" };
+
+const STATUS_ORDER: Record<ReportStatus, number> = { Submitted: 0, Expired: 1, InProgress: 2, NotStarted: 3 };
+
+export function sortReportRows(rows: ExamReportRow[], sort: SortState<ReportSortKey>): ExamReportRow[] {
+  const value = (r: ExamReportRow) =>
+    ({
+      code: r.dealerCode,
+      name: r.dealerName,
+      region: r.region,
+      status: STATUS_ORDER[r.status],
+      startedAt: r.startedAt,
+      duration: r.durationSeconds,
+      score: r.scorePercent,
+      result: r.isPassed,
+    })[sort.key];
+  return sortRows(rows, value, sort.dir);
 }
 
 export async function getExamReport(examId: string, filters: ReportFilters = {}): Promise<ExamReport | null> {

@@ -22,11 +22,9 @@ async function wipe() {
   await prisma.question.deleteMany();
   await prisma.questionCategory.deleteMany();
   await prisma.attendance.deleteMany();
-  await prisma.materialProgress.deleteMany();
-  await prisma.courseEnrollment.deleteMany();
+  await prisma.sessionAssignment.deleteMany();
+  await prisma.sessionMaterial.deleteMany();
   await prisma.trainingSession.deleteMany();
-  await prisma.courseMaterial.deleteMany();
-  await prisma.course.deleteMany();
   await prisma.user.deleteMany();
   await prisma.dealer.deleteMany();
 }
@@ -84,69 +82,56 @@ async function main() {
     }
   }
 
-  const courses = [
+  const sessions = [
     {
-      title: "Giới thiệu sản phẩm nệm cao su",
+      title: "Giới thiệu sản phẩm mới",
       description: "Tổng quan danh mục sản phẩm, đặc tính chất liệu và cách tư vấn chọn nệm phù hợp.",
-      materials: ["Tổng quan dòng sản phẩm", "Bảng kích thước tiêu chuẩn", "Video hướng dẫn tư vấn tại cửa hàng"],
-      sessions: [{ title: "Giới thiệu sản phẩm mới", offset: 2 * DAY + 3 * HOUR }],
+      materials: ["Tổng quan dòng sản phẩm", "Bảng kích thước tiêu chuẩn"],
+      offset: 2 * DAY + 3 * HOUR,
     },
     {
       title: "Kỹ năng tư vấn bán hàng",
-      description: "Kỹ năng tìm hiểu nhu cầu, xử lý phản đối và chăm sóc sau bán.",
-      materials: ["Quy trình tư vấn 5 bước", "Tình huống xử lý phản đối thường gặp"],
-      sessions: [
-        { title: "Kỹ năng tư vấn bán hàng", offset: 4 * DAY + 7 * HOUR },
-        { title: "Chăm sóc khách hàng sau bán", offset: -3 * DAY },
-      ],
+      description: "Tìm hiểu nhu cầu, xử lý phản đối và chăm sóc sau bán.",
+      materials: ["Quy trình tư vấn 5 bước"],
+      offset: 4 * DAY + 7 * HOUR,
     },
     {
-      title: "Chính sách bán hàng & bảo hành",
-      description: "Cập nhật chính sách bán hàng, quy trình bảo hành và chương trình khuyến mãi.",
+      title: "Chăm sóc khách hàng sau bán",
+      description: null,
+      materials: ["Tình huống xử lý phản đối thường gặp"],
+      offset: -3 * DAY,
+    },
+    {
+      title: "Cập nhật chính sách bán hàng",
+      description: "Chính sách bán hàng, quy trình bảo hành và chương trình khuyến mãi quý tới.",
       materials: ["Quy trình tiếp nhận bảo hành", "Chính sách trưng bày cửa hàng"],
-      sessions: [{ title: "Cập nhật chính sách bán hàng", offset: 6 * DAY + 3 * HOUR }],
+      offset: 6 * DAY + 3 * HOUR,
     },
   ];
 
-  for (const [i, c] of courses.entries()) {
-    const course = await prisma.course.create({
+  for (const [i, s] of sessions.entries()) {
+    const start = new Date(Math.round((now.getTime() + s.offset) / HOUR) * HOUR);
+    await prisma.trainingSession.create({
       data: {
-        title: c.title,
-        description: c.description,
-        status: "published",
-        publishedAt: now,
+        title: s.title,
+        description: s.description,
+        presenterName: "Phòng Kinh doanh",
+        startsAt: start,
+        endsAt: new Date(start.getTime() + 1.5 * HOUR),
+        meetUrl: "https://meet.google.com/abc-defg-hij",
+        status: s.offset < 0 ? "completed" : "scheduled",
         createdById: admin.id,
         materials: {
-          create: c.materials.map((title, mi) => ({
+          create: s.materials.map((title, mi) => ({
             title,
             kind: "link",
             url: `https://example.com/kymdan-demo/tai-lieu-${i + 1}-${mi + 1}`,
             sortOrder: mi + 1,
-            isRequired: mi === 0,
           })),
         },
-        sessions: {
-          create: c.sessions.map((s) => {
-            const start = new Date(Math.round((now.getTime() + s.offset) / HOUR) * HOUR);
-            return {
-              title: s.title,
-              presenterName: "Phòng Đào tạo",
-              startsAt: start,
-              endsAt: new Date(start.getTime() + 1.5 * HOUR),
-              meetUrl: "https://meet.google.com/abc-defg-hij",
-              status: s.offset < 0 ? "completed" : "scheduled",
-            };
-          }),
-        },
-        enrollments: { create: dealers.map((d) => ({ dealerId: d.id })) },
+        assignments: { create: dealers.map((d) => ({ dealerId: d.id })) },
       },
-      include: { materials: true },
     });
-    if (i === 0) {
-      await prisma.materialProgress.create({
-        data: { materialId: course.materials[0].id, dealerId: dealers[0].id, completedAt: now },
-      });
-    }
   }
 
   const official = await prisma.exam.create({

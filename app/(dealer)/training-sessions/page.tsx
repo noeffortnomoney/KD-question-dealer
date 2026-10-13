@@ -48,7 +48,7 @@ export default async function TrainingSessionsPage({ searchParams }: { searchPar
       ) : (
         <div className="space-y-3">
           {sessions.map((s) => (
-            <SessionRow key={s.id} session={s} />
+            <SessionRow key={s.id} session={s} showDetails />
           ))}
         </div>
       )}

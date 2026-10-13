@@ -19,7 +19,7 @@ export default async function ChangePasswordPage() {
         <p className="mt-1 text-sm text-muted-foreground">
           {forced
             ? "Đây là lần đăng nhập đầu tiên hoặc mật khẩu vừa được cấp lại. Vui lòng đặt mật khẩu mới để tiếp tục."
-            : "Mật khẩu tối thiểu 8 ký tự, gồm cả chữ và số."}
+            : "Mật khẩu tối thiểu 6 ký tự."}
         </p>
         <ChangePasswordForm homePath={homePathFor(toRole(session.user.role))} forced={forced} />
       </div>

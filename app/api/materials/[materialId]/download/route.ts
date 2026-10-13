@@ -13,7 +13,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ mat
   const { materialId } = await params;
   if (!isGuid(materialId)) return apiError(404, "NOT_FOUND", "Không tìm thấy tài liệu");
 
-  const material = await prisma.courseMaterial.findUnique({
+  const material = await prisma.sessionMaterial.findUnique({
     where: { id: materialId },
     select: {
       id: true,
@@ -21,7 +21,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ mat
       storageKey: true,
       fileName: true,
       contentType: true,
-      course: { select: { id: true, status: true } },
+      session: { select: { id: true, status: true } },
     },
   });
   if (!material || material.kind !== "file" || !material.storageKey) {
@@ -31,19 +31,14 @@ export async function GET(_request: Request, { params }: { params: Promise<{ mat
   if (guard.role === "dealer") {
     const session = await auth();
     const dealerId = session?.user?.dealerId;
-    if (!dealerId || material.course.status !== "published") {
+    if (!dealerId || material.session.status === "cancelled") {
       return apiError(404, "NOT_FOUND", "Không tìm thấy tài liệu");
     }
-    const enrolled = await prisma.courseEnrollment.findUnique({
-      where: { courseId_dealerId: { courseId: material.course.id, dealerId } },
+    const assigned = await prisma.sessionAssignment.findUnique({
+      where: { sessionId_dealerId: { sessionId: material.session.id, dealerId } },
       select: { id: true },
     });
-    if (!enrolled) return apiError(404, "NOT_FOUND", "Không tìm thấy tài liệu");
-    await prisma.materialProgress.upsert({
-      where: { materialId_dealerId: { materialId: material.id, dealerId } },
-      create: { materialId: material.id, dealerId },
-      update: {},
-    });
+    if (!assigned) return apiError(404, "NOT_FOUND", "Không tìm thấy tài liệu");
   }
 
   const data = await readFile(material.storageKey);

@@ -10,7 +10,6 @@ import {
 } from "@/lib/import/dealer-import";
 import { readTable } from "@/lib/import/excel";
 import { findExisting } from "@/lib/import/existing";
-import { hashPassword } from "@/lib/password";
 import { prisma } from "@/lib/prisma";
 
 export const maxDuration = 300;
@@ -22,7 +21,7 @@ function looksLikeXlsx(buffer: Buffer): boolean {
   return buffer.length > 4 && buffer[0] === 0x50 && buffer[1] === 0x4b && buffer[2] === 0x03 && buffer[3] === 0x04;
 }
 
-function withoutPassword(data: DealerImportRow) {
+function rowFields(data: DealerImportRow) {
   return {
     code: data.code,
     dealerName: data.dealerName,
@@ -30,7 +29,6 @@ function withoutPassword(data: DealerImportRow) {
     email: data.email,
     phone: data.phone,
     region: data.region,
-    hasTempPassword: Boolean(data.tempPassword),
   };
 }
 
@@ -77,16 +75,12 @@ export async function POST(request: Request) {
   );
   const validated = validateRows(rows, existing);
 
-  const stored = [];
-  for (const r of validated) {
-    const passwordHash = r.errors.length === 0 && r.data.tempPassword ? await hashPassword(r.data.tempPassword) : null;
-    stored.push({
-      rowNumber: r.rowNumber,
-      isValid: r.errors.length === 0,
-      payload: JSON.stringify({ ...withoutPassword(r.data), passwordHash }),
-      errors: r.errors.length ? JSON.stringify(r.errors) : null,
-    });
-  }
+  const stored = validated.map((r) => ({
+    rowNumber: r.rowNumber,
+    isValid: r.errors.length === 0,
+    payload: JSON.stringify(rowFields(r.data)),
+    errors: r.errors.length ? JSON.stringify(r.errors) : null,
+  }));
 
   const validRows = validated.filter((r) => r.errors.length === 0).length;
   const job = await prisma.importJob.create({
@@ -110,7 +104,7 @@ export async function POST(request: Request) {
     expiresAtUtc: job.expiresAt.toISOString(),
     preview: validated.slice(0, PREVIEW_LIMIT).map((r) => ({
       row: r.rowNumber,
-      ...withoutPassword(r.data),
+      ...rowFields(r.data),
       status: r.errors.length ? "error" : "valid",
       errors: r.errors,
     })),

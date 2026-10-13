@@ -1,54 +1,83 @@
-import { Download, ExternalLink } from "lucide-react";
+import { Download, ExternalLink, Pencil, UserMinus } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { AssignDealersDialog } from "@/components/admin/AssignDealersDialog";
 import { AutoRefresh } from "@/components/admin/AutoRefresh";
+import { MaterialManager } from "@/components/admin/MaterialManager";
+import { SessionDialog } from "@/components/admin/SessionDialog";
+import { ConfirmAction } from "@/components/common/ConfirmAction";
 import { EmptyState } from "@/components/common/EmptyState";
 import { PageHeader } from "@/components/common/PageHeader";
 import { StatCard } from "@/components/common/StatCard";
-import { StatusBadge } from "@/components/common/StatusBadge";
+import { StatusBadge, ToneBadge } from "@/components/common/StatusBadge";
+import { ActionIcon, ActionsCell, ActionsHead, EmptyValue, SortableHead } from "@/components/common/TableParts";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { formatDateTime, formatTime } from "@/lib/date-utils";
-import { getSessionAttendance, type AttendanceFilter } from "@/lib/queries/attendance";
+import { SttCell, SttHead } from "@/components/common/RowNumber";
+import { assignSessionAction, unassignSessionAction } from "@/lib/actions/admin/sessions";
+import { formatDateTime, formatTime, toDateTimeLocalValue } from "@/lib/date-utils";
+import {
+  ATTENDANCE_DEFAULT_SORT,
+  ATTENDANCE_SORT_KEYS,
+  getSessionAttendance,
+  sortAttendanceRows,
+  type AttendanceFilter,
+} from "@/lib/queries/attendance";
+import { parseSort, type SortState } from "@/lib/sort";
+import { listRegions } from "@/lib/queries/dealers";
 import { SESSION_PHASE_LABEL } from "@/lib/session-status";
+import { prisma } from "@/lib/prisma";
 import { cn } from "@/lib/utils";
 import { Pagination } from "@/components/common/Pagination";
 import { paginate, parsePage, parsePageSize } from "@/lib/pagination";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Điểm danh buổi training — Kymdan" };
+export const metadata = { title: "Buổi training — Kymdan" };
 
-const TABS: { key: AttendanceFilter; label: string }[] = [
+const FILTERS: { key: AttendanceFilter; label: string }[] = [
   { key: "all", label: "Tất cả" },
   { key: "joined", label: "Đã tham gia" },
   { key: "missing", label: "Chưa tham gia" },
 ];
 
-export default async function SessionAttendancePage({
+export default async function SessionDetailPage({
   params,
   searchParams,
 }: {
   params: Promise<{ sessionId: string }>;
-  searchParams: Promise<{ filter?: string; q?: string; page?: string; size?: string }>;
+  searchParams: Promise<{ tab?: string; filter?: string; q?: string; page?: string; size?: string; sort?: string; dir?: string }>;
 }) {
   const { sessionId } = await params;
   const sp = await searchParams;
   const filter: AttendanceFilter = sp.filter === "joined" || sp.filter === "missing" ? sp.filter : "all";
-  const data = await getSessionAttendance(sessionId, filter, sp.q ?? "");
-  if (!data) notFound();
+  const raw = await getSessionAttendance(sessionId, filter, sp.q ?? "");
+  if (!raw) notFound();
+  const sort = parseSort(sp, ATTENDANCE_SORT_KEYS, ATTENDANCE_DEFAULT_SORT);
+  const data = { ...raw, rows: sortAttendanceRows(raw.rows, sort) };
   const { session, summary } = data;
-  const size = parsePageSize(sp.size);
-  const { items: rows, page, total, offset } = paginate(data.rows, parsePage(sp.page), size);
+  const tab = sp.tab === "materials" ? "materials" : "attendance";
   const base = `/admin/training-sessions/${session.id}`;
-  const exportQs = new URLSearchParams({ filter, ...(sp.q ? { q: sp.q } : {}) }).toString();
+  const exportQs = new URLSearchParams({
+    filter,
+    ...(sp.q ? { q: sp.q } : {}),
+    ...(sp.sort ? { sort: sp.sort, dir: sp.dir ?? "asc" } : {}),
+  }).toString();
+  const [regions, materials] = await Promise.all([
+    listRegions(),
+    prisma.sessionMaterial.findMany({
+      where: { sessionId: session.id },
+      orderBy: { sortOrder: "asc" },
+      select: { id: true, title: true, kind: true, url: true, fileName: true },
+    }),
+  ]);
 
   return (
     <div className="mx-auto max-w-6xl">
-      <Link href={`/admin/courses/${session.course.id}?tab=sessions`} className="text-sm text-muted-foreground hover:text-brand">
-        ← {session.course.title}
+      <Link href="/admin/training-sessions" className="text-sm text-muted-foreground hover:text-brand">
+        ← Lịch training
       </Link>
       <PageHeader
-        title={`Điểm danh: ${session.title}`}
+        title={session.title}
         description={
           <span className="flex flex-wrap items-center gap-2">
             <StatusBadge map={SESSION_PHASE_LABEL} value={session.phase} />
@@ -60,20 +89,81 @@ export default async function SessionAttendancePage({
         }
         actions={
           <>
+            <SessionDialog
+              sessionId={session.id}
+              initial={{
+                title: session.title,
+                description: session.description ?? "",
+                presenterName: session.presenterName ?? "",
+                startsAt: toDateTimeLocalValue(session.startsAt),
+                endsAt: toDateTimeLocalValue(session.endsAt),
+                meetUrl: session.meetUrl,
+              }}
+              trigger={
+                <Button variant="outline">
+                  <Pencil className="size-4" /> Sửa
+                </Button>
+              }
+            />
             <Button asChild variant="outline">
               <a href={session.meetUrl} target="_blank" rel="noopener noreferrer">
                 Mở Google Meet <ExternalLink className="size-3.5" />
               </a>
             </Button>
-            <Button asChild>
-              <a href={`/api/admin/training-sessions/${session.id}/attendance/export?${exportQs}`}>
-                <Download className="size-4" /> Xuất Excel
-              </a>
-            </Button>
+            <AssignDealersDialog title="Giao buổi training cho đại lý" regions={regions} action={assignSessionAction.bind(null, session.id)} />
           </>
         }
       />
+      {session.description && <p className="-mt-2 mb-4 whitespace-pre-line text-sm text-muted-foreground">{session.description}</p>}
 
+      <nav className="mb-5 flex gap-1 border-b">
+        {[
+          { key: "attendance", label: `Đại lý & điểm danh (${summary.assigned})` },
+          { key: "materials", label: `Tài liệu (${materials.length})` },
+        ].map((t) => (
+          <Link
+            key={t.key}
+            href={`${base}?tab=${t.key}`}
+            className={cn(
+              "-mb-px border-b-2 px-4 py-2 text-sm font-medium",
+              tab === t.key ? "border-brand text-brand" : "border-transparent text-muted-foreground hover:text-foreground"
+            )}
+          >
+            {t.label}
+          </Link>
+        ))}
+      </nav>
+
+      {tab === "materials" ? (
+        <MaterialManager sessionId={session.id} materials={materials} />
+      ) : (
+        <AttendanceTab data={data} filter={filter} sp={sp} sort={sort} base={base} exportQs={exportQs} />
+      )}
+    </div>
+  );
+}
+
+function AttendanceTab({
+  data,
+  filter,
+  sp,
+  sort,
+  base,
+  exportQs,
+}: {
+  data: NonNullable<Awaited<ReturnType<typeof getSessionAttendance>>>;
+  filter: AttendanceFilter;
+  sp: { q?: string; page?: string; size?: string };
+  sort: SortState;
+  base: string;
+  exportQs: string;
+}) {
+  const { session, summary } = data;
+  const size = parsePageSize(sp.size);
+  const { items: rows, page, total, offset } = paginate(data.rows, parsePage(sp.page), size);
+
+  return (
+    <>
       {session.phase === "live" && (
         <div className="mb-4">
           <AutoRefresh seconds={30} />
@@ -92,7 +182,7 @@ export default async function SessionAttendancePage({
       </p>
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        {TABS.map((t) => (
+        {FILTERS.map((t) => (
           <Link
             key={t.key}
             href={`${base}?filter=${t.key}${sp.q ? `&q=${encodeURIComponent(sp.q)}` : ""}${sp.size ? `&size=${sp.size}` : ""}`}
@@ -113,41 +203,72 @@ export default async function SessionAttendancePage({
             className="h-9 w-60 rounded-md border bg-card px-3 text-sm outline-none focus:border-brand"
           />
         </form>
+        <Button asChild variant="outline">
+          <a href={`/api/admin/training-sessions/${session.id}/attendance/export?${exportQs}`}>
+            <Download className="size-4" /> Xuất Excel
+          </a>
+        </Button>
       </div>
 
       {rows.length === 0 ? (
-        <EmptyState title={filter === "joined" ? "Chưa có đại lý nào bấm tham gia" : "Không có đại lý"} />
+        <EmptyState
+          title={
+            summary.assigned === 0
+              ? "Chưa giao cho đại lý nào"
+              : filter === "joined"
+                ? "Chưa có đại lý nào bấm tham gia"
+                : "Không có đại lý"
+          }
+          description={summary.assigned === 0 ? "Bấm \"Giao cho đại lý\" để đại lý thấy buổi training này." : undefined}
+        />
       ) : (
         <div className="rounded-xl border bg-card">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-12">#</TableHead>
-                <TableHead>Mã</TableHead>
-                <TableHead>Đại lý</TableHead>
+                <SttHead />
+                <SortableHead column="code" sort={sort}>Mã</SortableHead>
+                <SortableHead column="name" sort={sort}>Đại lý</SortableHead>
                 <TableHead>Người dùng</TableHead>
-                <TableHead>Khu vực</TableHead>
-                <TableHead>Bấm tham gia lúc</TableHead>
+                <SortableHead column="region" sort={sort}>Khu vực</SortableHead>
+                <SortableHead column="joinedAt" sort={sort}>Bấm tham gia lúc</SortableHead>
+                <ActionsHead />
               </TableRow>
             </TableHeader>
             <TableBody>
               {rows.map((r, i) => (
                 <TableRow key={r.dealerId} data-testid={`attendance-${r.code}`}>
-                  <TableCell className="text-muted-foreground">{offset + i + 1}</TableCell>
+                  <SttCell n={offset + i + 1} />
                   <TableCell className="font-mono text-xs">{r.code}</TableCell>
                   <TableCell className="font-medium">{r.name}</TableCell>
                   <TableCell>
-                    <div>{r.userName ?? "—"}</div>
+                    <div>{r.userName ?? <EmptyValue>Chưa có tài khoản</EmptyValue>}</div>
                     <div className="text-xs text-muted-foreground">{r.email}</div>
                   </TableCell>
-                  <TableCell>{r.region ?? "—"}</TableCell>
-                  <TableCell>
+                  <TableCell>{r.region ?? <EmptyValue>Chưa phân vùng</EmptyValue>}</TableCell>
+                  <TableCell className="tabular-nums">
                     {r.joinedAt ? (
-                      <span className="font-medium text-success">{formatDateTime(r.joinedAt)}</span>
+                      <ToneBadge tone="success">{formatDateTime(r.joinedAt)}</ToneBadge>
                     ) : (
-                      <span className="text-muted-foreground">Chưa tham gia</span>
+                      <ToneBadge tone="muted">Chưa tham gia</ToneBadge>
                     )}
                   </TableCell>
+                  <ActionsCell>
+                    {r.assigned && (
+                      <ConfirmAction
+                        action={unassignSessionAction.bind(null, session.id, r.dealerId)}
+                        title="Bỏ giao buổi training?"
+                        description={`Đại lý ${r.code} sẽ không thấy buổi training này nữa.`}
+                        confirmLabel="Bỏ giao"
+                        destructive
+                        trigger={
+                          <ActionIcon label="Bỏ giao" tone="danger">
+                            <UserMinus className="size-4" />
+                          </ActionIcon>
+                        }
+                      />
+                    )}
+                  </ActionsCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -155,6 +276,6 @@ export default async function SessionAttendancePage({
           <Pagination page={page} pageSize={size} total={total} className="border-t" />
         </div>
       )}
-    </div>
+    </>
   );
 }

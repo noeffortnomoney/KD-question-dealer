@@ -5,7 +5,7 @@
 | Hạng mục | Yêu cầu |
 |---|---|
 | Thư viện | NextAuth v5 Credentials + `bcryptjs` (theo TrackMyGoal). Không tự viết thuật toán hash |
-| Mật khẩu | Tối thiểu 8 ký tự; bcrypt cost ≥ 10; dealer mới nhận mật khẩu tạm, cột `MustChangePassword` buộc đổi lần đầu (middleware chuyển hướng tới trang đổi mật khẩu) |
+| Mật khẩu | **Hiện thực (quyết định của chủ dự án 2026-10-13):** tài khoản mới (thêm đại lý, thêm quản trị viên, import đại lý — file import không còn cột mật khẩu) nhận mật khẩu mặc định `123456`; mật khẩu khi đổi hoặc admin cấp lại chỉ cần **tối thiểu 6 ký tự**, không bắt buộc chữ/số (`lib/password-rules.ts`). Cấp lại mật khẩu: admin nhập mật khẩu mới, mặc định điền sẵn `123456`. bcrypt cost 10; cột `MustChangePassword` buộc đổi lần đầu và sau khi cấp lại (middleware chuyển hướng tới trang đổi mật khẩu), mật khẩu mới phải khác mật khẩu hiện tại. Rủi ro: `123456` ai cũng đoán được → tài khoản chưa đăng nhập lần đầu có thể bị người khác chiếm nếu biết email; giảm thiểu nhờ khóa 15 phút sau 5 lần sai và bắt đổi ngay lần đầu |
 | Thông báo lỗi | `authorize()` trả `null` cho mọi trường hợp sai (email không tồn tại, sai mật khẩu, tài khoản khóa) → một thông báo chung; forgot-password luôn trả 202 |
 | Khóa tạm | Lockout sau N lần sai (đề xuất 5 lần / 15 phút) **theo tài khoản**, không theo IP — nhiều dealer có thể dùng chung NAT cửa hàng. NextAuth không có sẵn → thêm cột `FailedLoginCount`, `LockedUntilUtc` |
 | Phiên | Session JWT trong cookie `HttpOnly`, `Secure`, `SameSite=Lax`; NextAuth tự lo CSRF cho luồng đăng nhập. Server Action có kiểm tra origin (`serverActions.allowedOrigins`) |
@@ -21,7 +21,7 @@ Chi phí CPU khi đăng nhập: `bcryptjs` là bcrypt viết bằng JavaScript t
 - Kiểm tra **theo resource** ở mọi truy vấn: `WHERE AttemptId = @id AND DealerId = @currentDealerId`. Không tìm thấy → 404 (không tiết lộ tồn tại).
 - Không nhận `DealerId`/`UserId` từ client cho API đại lý.
 - Popup xác nhận (UI-24) **không thay thế** kiểm tra quyền ở backend.
-- Test tự động bắt buộc: dealer A gọi API với attemptId/courseId của dealer B → 404.
+- Test tự động bắt buộc: dealer A gọi API với attemptId của dealer B, hoặc tải tài liệu của buổi training không được giao → 404 (`e2e/materials.spec.ts`).
 
 ## 3. Chống lộ đáp án
 
@@ -49,6 +49,8 @@ Yêu cầu spec: **không khóa nhầm người dùng hợp lệ trong đợt ca
 
 ## 5. Audit log
 
+**Quyền xem (hiện thực 2026-10-13):** chỉ tài khoản quản trị `admin@kymdan.local` (`AUDIT_LOG_OWNER_EMAIL` trong `lib/roles.ts`). Chặn 3 lớp: menu ẩn (`navFor`), middleware chuyển về `/admin` (`canAccessPath` đọc email trong JWT), trang gọi `requireAuditLogViewer()` đọc email từ DB → `notFound()`. Mọi quản trị viên vẫn được **ghi** audit bình thường. Muốn đổi người xem → sửa hằng số này (email admin không sửa được trên giao diện).
+
 Ghi vào `AuditLogs` (append-only, `DENY UPDATE/DELETE` cho tài khoản ứng dụng):
 
 | Action | Khi nào | `DetailsJson` |
@@ -68,7 +70,7 @@ Mỗi bản ghi có `CorrelationId` trùng với `correlationId` trong response 
 
 - Import: chỉ `.xlsx`, `.csv`; kiểm tra extension **và** magic bytes; giới hạn dung lượng và số dòng (đề xuất 5 MB / 5.000 dòng).
 - Parse Excel bằng `exceljs` hoặc SheetJS ≥ 0.20.2 (không dùng `xlsx@0.18.5` từ npm như TrackMyGoal — có lỗ hổng khi đọc file tải lên, xem [10 §7](10-cong-nghe.md#7-import-excel)). Không chấp nhận `.xlsm`.
-- Tài liệu khóa học: lưu object storage private; trả signed URL hết hạn sau ~10 phút.
+- Tài liệu buổi training: lưu object storage private (hiện là `STORAGE_DIR`); tải qua Route Handler kiểm tra đại lý được giao buổi đó. Khi chuyển Blob: trả signed URL hết hạn sau ~10 phút.
 - Quét malware theo khả năng hạ tầng.
 - Export: chống CSV/Formula injection (tiền tố `'` cho ô bắt đầu bằng `= + - @`).
 
@@ -104,7 +106,7 @@ Dữ liệu thu thập: tên, email, số điện thoại, khu vực, kết qu�
 | Guard ở mọi Route Handler / Server Action | ✅ `requireAdmin` / `requireDealer` / `requireActiveDealer` (bắt đầu thi, ôn tập kiểm tra lại trạng thái tài khoản trong DB) |
 | Payload thi không lộ đáp án | ✅ có unit test + smoke test + e2e |
 | Câu đang nằm trong kỳ thi mở bị loại khỏi ôn tập (Q16) | ✅ |
-| Audit log | ✅ các thao tác ở mục 5 + `Course.*`, `Session.*`, `Exam.Assign/AddQuestions…` |
+| Audit log | ✅ các thao tác ở mục 5 + `Session.*` (tạo, sửa, hủy, giao/bỏ giao, thêm/tải/xóa tài liệu), `Exam.Assign/AddQuestions…`. Dòng `Course.*` cũ vẫn giữ nhãn để đọc lịch sử |
 | Upload: kiểm tra đuôi + magic bytes xlsx, giới hạn dung lượng; file lưu ngoài `public/` | ✅ |
 | Export chống formula injection | ✅ `safeCell()` |
 | Header bảo mật cơ bản | ✅ `X-Frame-Options`, `nosniff`, `Referrer-Policy`, `Permissions-Policy`. ⏳ CSP chưa bật |

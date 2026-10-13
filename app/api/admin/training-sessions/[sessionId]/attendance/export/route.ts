@@ -2,7 +2,14 @@ import { requireAdmin } from "@/lib/auth-guard";
 import { formatDateTime } from "@/lib/date-utils";
 import { apiError, guardResponse } from "@/lib/http";
 import { XLSX_TYPE, buildWorkbook, fileResponse } from "@/lib/import/excel";
-import { getSessionAttendance, type AttendanceFilter } from "@/lib/queries/attendance";
+import {
+  ATTENDANCE_DEFAULT_SORT,
+  ATTENDANCE_SORT_KEYS,
+  getSessionAttendance,
+  sortAttendanceRows,
+  type AttendanceFilter,
+} from "@/lib/queries/attendance";
+import { parseSort } from "@/lib/sort";
 
 export const dynamic = "force-dynamic";
 
@@ -29,7 +36,14 @@ export async function GET(request: Request, { params }: { params: Promise<{ sess
         { header: "Trạng thái", key: "status", width: 16 },
         { header: "Bấm tham gia lúc", key: "joinedAt", width: 20 },
       ],
-      rows: data.rows.map((r, i) => ({
+      rows: sortAttendanceRows(
+        data.rows,
+        parseSort(
+          { sort: url.searchParams.get("sort") ?? undefined, dir: url.searchParams.get("dir") ?? undefined },
+          ATTENDANCE_SORT_KEYS,
+          ATTENDANCE_DEFAULT_SORT
+        )
+      ).map((r, i) => ({
         no: i + 1,
         code: r.code,
         name: r.name,

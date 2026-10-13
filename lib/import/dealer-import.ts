@@ -1,5 +1,3 @@
-import { passwordProblem } from "@/lib/password";
-
 export const IMPORT_MAX_BYTES = 5 * 1024 * 1024;
 export const IMPORT_MAX_ROWS = 5000;
 
@@ -10,7 +8,6 @@ export const TEMPLATE_COLUMNS = [
   { key: "email", header: "Email đăng nhập", required: true, max: 320 },
   { key: "phone", header: "Số điện thoại", required: false, max: 30 },
   { key: "region", header: "Khu vực", required: false, max: 100 },
-  { key: "tempPassword", header: "Mật khẩu tạm", required: false, max: 100 },
 ] as const;
 
 export type ImportKey = (typeof TEMPLATE_COLUMNS)[number]["key"];
@@ -133,10 +130,6 @@ export function validateRows(
     }
     if (data.phone && !PHONE_RE.test(data.phone)) {
       errors.push({ column: "Số điện thoại", code: "INVALID_FORMAT", message: "Số điện thoại không hợp lệ" });
-    }
-    if (data.tempPassword) {
-      const problem = passwordProblem(data.tempPassword);
-      if (problem) errors.push({ column: "Mật khẩu tạm", code: "INVALID_FORMAT", message: problem });
     }
 
     if (data.code) {

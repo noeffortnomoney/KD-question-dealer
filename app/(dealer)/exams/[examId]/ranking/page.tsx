@@ -4,6 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { EmptyState } from "@/components/common/EmptyState";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { SttCell, SttHead } from "@/components/common/RowNumber";
 import { requireDealer } from "@/lib/auth-guard";
 import { formatDateTime, formatDuration } from "@/lib/date-utils";
 import { formatScore } from "@/lib/format";
@@ -91,6 +92,7 @@ export default async function DealerRankingPage({ params }: { params: Promise<{ 
             <Table>
               <TableHeader>
                 <TableRow>
+                  <SttHead />
                   <TableHead className="w-20">Hạng</TableHead>
                   <TableHead>Đại lý</TableHead>
                   <TableHead>Khu vực</TableHead>
@@ -101,6 +103,7 @@ export default async function DealerRankingPage({ params }: { params: Promise<{ 
               <TableBody>
                 {top.map((r, i) => (
                   <TableRow key={i} className={cn(r.isMe && "bg-brand-soft/60 font-semibold")} data-testid="top-row">
+                    <SttCell n={i + 1} />
                     <TableCell>
                       <span className="flex items-center gap-1.5 font-bold tabular-nums">
                         {r.rank <= 3 && <Medal className={cn("size-4", MEDAL[r.rank - 1])} />}

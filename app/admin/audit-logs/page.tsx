@@ -1,10 +1,13 @@
 import type { Prisma } from "@prisma/client";
+import { notFound } from "next/navigation";
+import { requireAuditLogViewer } from "@/lib/auth-guard";
 import { EmptyState } from "@/components/common/EmptyState";
 import { FilterBar } from "@/components/common/FilterBar";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Pagination } from "@/components/common/Pagination";
 import { clampPage, parsePage, parsePageSize } from "@/lib/pagination";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { SttCell, SttHead } from "@/components/common/RowNumber";
 import { formatDateTime } from "@/lib/date-utils";
 import { prisma } from "@/lib/prisma";
 
@@ -53,11 +56,18 @@ const ACTION_LABEL: Record<string, string> = {
   "Session.Update": "Sửa buổi training",
   "Session.cancelled": "Hủy buổi training",
   "Session.scheduled": "Khôi phục buổi training",
+  "Session.Assign": "Giao buổi training",
+  "Session.Unassign": "Bỏ giao buổi training",
+  "Session.AddMaterial": "Thêm tài liệu buổi training",
+  "Session.MaterialUpload": "Tải lên tài liệu buổi training",
+  "Session.DeleteMaterial": "Xóa tài liệu buổi training",
 };
 
 type SP = { q?: string; entity?: string; from?: string; to?: string; page?: string; size?: string };
 
 export default async function AuditLogsPage({ searchParams }: { searchParams: Promise<SP> }) {
+  const g = await requireAuditLogViewer();
+  if ("error" in g) notFound();
   const sp = await searchParams;
   const size = parsePageSize(sp.size);
   const from = sp.from ? new Date(`${sp.from}T00:00:00+07:00`) : null;
@@ -137,6 +147,7 @@ export default async function AuditLogsPage({ searchParams }: { searchParams: Pr
           <Table>
             <TableHeader>
               <TableRow>
+                <SttHead />
                 <TableHead>Thời gian</TableHead>
                 <TableHead>Người thực hiện</TableHead>
                 <TableHead>Thao tác</TableHead>
@@ -145,8 +156,9 @@ export default async function AuditLogsPage({ searchParams }: { searchParams: Pr
               </TableRow>
             </TableHeader>
             <TableBody>
-              {logs.map((l) => (
+              {logs.map((l, i) => (
                 <TableRow key={l.id}>
+                  <SttCell n={(page - 1) * size + i + 1} />
                   <TableCell className="text-xs">{formatDateTime(l.occurredAt)}</TableCell>
                   <TableCell>
                     <div className="text-sm">{l.actor?.name ?? "Hệ thống"}</div>

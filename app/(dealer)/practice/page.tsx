@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/common/PageHeader";
 import { ToneBadge } from "@/components/common/StatusBadge";
 import { PracticeStart } from "@/components/practice/PracticeStart";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { SttCell, SttHead } from "@/components/common/RowNumber";
 import { requireDealer } from "@/lib/auth-guard";
 import { formatDateTime } from "@/lib/date-utils";
 import { Pagination } from "@/components/common/Pagination";
@@ -39,6 +40,7 @@ export default async function PracticePage({ searchParams }: { searchParams: Pro
             <Table>
               <TableHeader>
                 <TableRow>
+                  <SttHead />
                   <TableHead>Chủ đề</TableHead>
                   <TableHead>Bắt đầu</TableHead>
                   <TableHead className="text-right">Kết quả</TableHead>
@@ -46,8 +48,9 @@ export default async function PracticePage({ searchParams }: { searchParams: Pro
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {historyPage.items.map((h) => (
+                {historyPage.items.map((h, i) => (
                   <TableRow key={h.sessionId}>
+                    <SttCell n={historyPage.offset + i + 1} />
                     <TableCell>
                       <Link href={`/practice/${h.sessionId}`} className="font-medium hover:text-brand">
                         {h.categoryName}

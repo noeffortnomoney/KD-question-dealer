@@ -131,7 +131,7 @@ export async function addExamQuestionsAction(examId: string, input: { questionId
   const where =
     input.categoryId && isGuid(input.categoryId)
       ? { status: "published", categoryId: input.categoryId }
-      : { status: "published", id: { in: (input.questionIds ?? []).filter(isGuid).slice(0, 500) } };
+      : { status: "published", id: { in: (input.questionIds ?? []).filter(isGuid).slice(0, 1000) } };
   const candidates = await prisma.question.findMany({ where, select: { id: true }, orderBy: { createdAt: "asc" } });
   const toAdd = candidates.filter((c) => !existing.some((e) => sameId(e.questionId, c.id)));
   if (toAdd.length === 0) return { error: "Không có câu hỏi đã xuất bản mới để thêm" };

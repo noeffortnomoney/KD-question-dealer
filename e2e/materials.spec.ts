@@ -1,9 +1,9 @@
 import { expect, test, type Page } from "@playwright/test";
-import { cleanupTestCourses } from "./db";
-import { ADMIN, login } from "./helpers";
+import { cleanupTestSessions } from "./db";
+import { ADMIN, createSessionViaUi, dealer, login } from "./helpers";
 
 test.afterAll(async () => {
-  await cleanupTestCourses();
+  await cleanupTestSessions();
 });
 
 function collectErrors(page: Page) {
@@ -18,18 +18,15 @@ function collectErrors(page: Page) {
   return errors;
 }
 
-async function createCourse(page: Page, title: string) {
-  await page.goto("/admin/courses/new");
-  await page.locator("form input").first().fill(title);
-  await page.getByRole("button", { name: "Tạo khóa học" }).click();
-  await expect(page).toHaveURL(/\/admin\/courses\/[0-9a-f-]{36}\?tab=materials/);
-}
-
-test("tab Tài liệu: thêm link, tải file, bắt buộc, đổi thứ tự, xóa — không có lỗi", async ({ page }) => {
+test("tab Tài liệu của buổi training: thêm link, tải file, đổi thứ tự, xóa; đại lý được giao mở được, đại lý khác bị chặn", async ({
+  page,
+  browser,
+}) => {
   const errors = collectErrors(page);
+  const title = `Buổi test tài liệu ${Date.now()}`;
   await login(page, ADMIN);
-  await createCourse(page, `Khóa test tài liệu ${Date.now()}`);
-  await expect(page.getByText("Chưa có tài liệu.")).toBeVisible();
+  await createSessionViaUi(page, { title, startMin: 60, endMin: 120, codes: "HCM001" });
+  await expect(page.getByText(/Chưa có tài liệu\./)).toBeVisible();
 
   await page.getByLabel(/^Tiêu đề/).fill("Link tài liệu A");
   await page.getByPlaceholder("https://").fill("https://example.com/a");
@@ -46,22 +43,35 @@ test("tab Tài liệu: thêm link, tải file, bắt buộc, đổi thứ tự, 
   await page.getByRole("button", { name: "Tải lên" }).click();
   await expect(page.getByText("File PDF B")).toBeVisible();
   await expect(page.getByText(/tai-lieu-b\.pdf/)).toBeVisible();
-
-  const rowB = page.locator("div.rounded-xl", { hasText: "File PDF B" }).last();
-  await rowB.getByRole("checkbox").check();
-  await expect(page.getByText("Đã cập nhật").first()).toBeVisible();
-  await page.reload();
-  await expect(page.locator("div.rounded-xl", { hasText: "File PDF B" }).last().getByRole("checkbox")).toBeChecked();
+  await expect(page.getByRole("link", { name: "Tài liệu (2)" })).toBeVisible();
 
   await page.locator("div.rounded-xl", { hasText: "File PDF B" }).last().getByRole("button", { name: "Lên" }).click();
   await expect(page.getByText("Đã cập nhật").first()).toBeVisible();
   const titles = page.locator("p.truncate.font-medium");
   await expect(titles.first()).toHaveText("File PDF B");
 
-  const download = await page.request.get(
-    (await page.locator("div.rounded-xl", { hasText: "File PDF B" }).last().getByRole("link", { name: "Mở tài liệu" }).getAttribute("href"))!
-  );
-  expect(download.status()).toBe(200);
+  const fileHref = (await page
+    .locator("div.rounded-xl", { hasText: "File PDF B" })
+    .last()
+    .getByRole("link", { name: "Mở tài liệu" })
+    .getAttribute("href"))!;
+  expect((await page.request.get(fileHref)).status()).toBe(200);
+
+  const d1 = await browser.newContext();
+  const dealer1 = await d1.newPage();
+  await login(dealer1, dealer(1));
+  await dealer1.goto("/training-sessions?tab=upcoming");
+  const row = dealer1.getByTestId("session-row").filter({ hasText: title });
+  await expect(row.getByRole("link", { name: /File PDF B/ })).toHaveAttribute("href", fileHref);
+  await expect(row.getByRole("link", { name: /Link tài liệu A/ })).toHaveAttribute("href", "https://example.com/a");
+  expect((await dealer1.request.get(fileHref)).status()).toBe(200);
+  await d1.close();
+
+  const d2 = await browser.newContext();
+  const dealer2 = await d2.newPage();
+  await login(dealer2, dealer(2));
+  expect((await dealer2.request.get(fileHref)).status()).toBe(404);
+  await d2.close();
 
   await page.locator("div.rounded-xl", { hasText: "Link tài liệu A" }).last().getByRole("button", { name: "Xóa" }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Xóa" }).click();
@@ -73,7 +83,7 @@ test("tab Tài liệu: thêm link, tải file, bắt buộc, đổi thứ tự, 
 test("tab Tài liệu: báo lỗi rõ ràng khi nhập sai", async ({ page }) => {
   const errors = collectErrors(page);
   await login(page, ADMIN);
-  await createCourse(page, `Khóa test lỗi ${Date.now()}`);
+  await createSessionViaUi(page, { title: `Buổi test lỗi ${Date.now()}`, startMin: 60, endMin: 120, codes: "HCM001" });
 
   await page.getByRole("button", { name: "Tải file lên" }).click();
   await page.getByRole("button", { name: "Tải lên" }).click();
